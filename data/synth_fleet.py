@@ -1,4 +1,5 @@
 import csv
+import os
 import random
 import argparse
 from .gfi import TARGET_GFI
@@ -27,6 +28,10 @@ def generate(path: str, ships: int, months: int, seed: int = 42):
                 "energy_mj": random.randint(80_000_000, 240_000_000),
                 "fuel": fuel,
             })
+    if not rows:
+        print(f"無資料可寫（ships={ships}, months={months}），未產生檔案")
+        return
+    os.makedirs(os.path.dirname(path) or ".", exist_ok=True)
     with open(path, "w", newline="", encoding="utf-8") as f:
         w = csv.DictWriter(f, fieldnames=list(rows[0].keys()))
         w.writeheader()

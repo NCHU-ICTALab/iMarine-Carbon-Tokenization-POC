@@ -45,11 +45,7 @@ def build(csv_path: str, out_path: str):
         canon = canonical(offchain)
         data_hash = Web3.keccak(text=canon).hex()  # 0x… 32 bytes
 
-        # 寫鏈下明細檔（正式版改放 IPFS，見 v2 規劃 5.2）
         fname = f"{row['ship_id']}_{row['reporting_period']}.json"
-        with open(os.path.join(OFFCHAIN_DIR, fname), "w", encoding="utf-8") as f:
-            f.write(canon)
-
         req = {
             "ship_id": row["ship_id"],
             "reporting_period": row["reporting_period"],
@@ -65,6 +61,9 @@ def build(csv_path: str, out_path: str):
             skipped += 1
             continue
         seen.add((req["ship_id"], req["reporting_period"]))
+        # 驗證通過才寫鏈下明細檔，避免留孤兒檔（正式版改放 IPFS，見 v2 規劃 5.2）
+        with open(os.path.join(OFFCHAIN_DIR, fname), "w", encoding="utf-8") as f:
+            f.write(canon)
         requests.append(req)
 
     os.makedirs(os.path.dirname(out_path), exist_ok=True)
