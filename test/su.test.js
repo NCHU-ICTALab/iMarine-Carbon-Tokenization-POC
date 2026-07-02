@@ -47,10 +47,12 @@ describe("SurplusUnit + Market", function () {
     ).to.be.revertedWith("SU: expired");
   });
 
-  it("撤銷：只有擁有者能燒、燒完就不存在", async () => {
+  it("撤銷：只有擁有者能燒、燒完就不存在、要留 Retired 稽核事件", async () => {
     await su.connect(issuer).mint(shipping.address, 9811000, 500, "uri", HASH);
     await expect(su.connect(buyer).retire(0, 3)).to.be.revertedWith("SU: not owner");
-    await su.connect(shipping).retire(0, 3); // 3 = SCOPE3_OFFSET
+    // 除役必須留下 Retired(purpose) 稽核事件——這正是移除公開 burn() 要保護的東西
+    await expect(su.connect(shipping).retire(0, 3)) // 3 = SCOPE3_OFFSET
+      .to.emit(su, "Retired").withArgs(0, shipping.address, 3);
     await expect(su.ownerOf(0)).to.be.reverted; // 已不存在
   });
 
