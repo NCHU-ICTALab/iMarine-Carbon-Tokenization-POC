@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="zh-Hant" data-lg-theme="dark">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>iMarine SU Exchange</title>
+<link rel="stylesheet" href="liquid-glass.css" />
+<style>
+/* ── tokens ── */
+:root{
+  --lg-accent:#35E0A6;
+  --gold:#E9BC63;
+  --ink-90:rgba(255,255,255,.9); --ink-60:rgba(255,255,255,.6);
+  --ink-50:rgba(255,255,255,.5); --ink-40:rgba(255,255,255,.4);
+  --hair:rgba(255,255,255,.1);
+  --ease:cubic-bezier(.22,1,.36,1);
+}
+html,body{margin:0;background:#070b11;color:var(--ink-90);
+  font-family:"Inter","Noto Sans TC",system-ui,sans-serif;-webkit-font-smoothing:antialiased;}
+.mono{font-family:"Geist Mono",ui-monospace,SFMono-Regular,monospace;}
+.gold{color:var(--gold);}
+
+/* ── 舞台：影片 + vignette + 髮絲導線 ── */
+.bg-fix{position:fixed;inset:0;z-index:0;pointer-events:none;}
+.bg-fix video{width:100%;height:100%;object-fit:cover;}
+.bg-vignette{position:absolute;inset:0;
+  background:linear-gradient(180deg,rgba(5,10,16,.82),rgba(5,10,16,.5) 42%,rgba(5,10,16,.78));}
+.guide{position:fixed;top:0;bottom:0;width:1px;background:var(--hair);z-index:5;pointer-events:none;}
+.guide-l{left:calc(50% - 36rem);} .guide-r{left:calc(50% + 36rem);}
+@media(max-width:1200px){.guide{display:none;}}
+
+/* ── 版心與導覽 ── */
+.topbar{position:fixed;top:16px;left:50%;transform:translateX(-50%);z-index:50;
+  width:min(70rem,calc(100% - 32px));}
+.topbar .lg-navbar{width:100%;}
+.brand{display:flex;flex-direction:column;line-height:1.15;}
+.brand b{font-size:15px;letter-spacing:-.01em;}
+.brand span{font-size:11px;color:var(--ink-40);}
+.wrap{position:relative;z-index:10;max-width:72rem;margin:0 auto;padding:104px 24px 56px;}
+
+/* ── 分頁與 stagger 進場 ── */
+.page{display:none;}
+.page.active{display:block;}
+.anim{opacity:0;transform:translateY(14px);}
+.page.active.entered .anim{opacity:1;transform:none;
+  transition:opacity .7s var(--ease),transform .7s var(--ease);transition-delay:var(--d,0s);}
+@media(prefers-reduced-motion:reduce){.anim{opacity:1;transform:none;transition:none;}}
+
+/* ── eyebrow 區塊標頭（統一語法）── */
+.eyebrow{display:flex;align-items:center;gap:8px;margin:0 0 14px;}
+.eyebrow .dot{width:6px;height:6px;border-radius:50%;background:#fff;}
+.eyebrow .lbl{font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-60);}
+.eyebrow .tag{font-size:11px;padding:2px 8px;border-radius:999px;border:1px solid var(--hair);color:var(--ink-50);}
+
+/* ── 髮絲線表格/列表 ── */
+.hairline{width:100%;border-collapse:collapse;font-size:13px;}
+.hairline th{color:var(--ink-40);font-weight:500;text-align:left;padding:8px;border-bottom:1px solid var(--hair);}
+.hairline td{padding:8px;border-bottom:1px solid var(--hair);color:var(--ink-90);}
+.pill{font-size:11px;padding:2px 10px;border-radius:999px;border:1px solid var(--hair);color:var(--ink-60);}
+.pill.listed{color:var(--lg-accent);border-color:var(--lg-accent);}
+.pill.retired{color:var(--ink-40);}
+/* 白色主 CTA */
+.lg-btn--primary{background:rgba(255,255,255,.92);color:#0a0f16;font-weight:600;}
+.lg-btn--primary:hover{background:#fff;}
+.lg-btn[disabled]{opacity:.45;pointer-events:none;}
+/* 健康 chip */
+#health-chip{display:inline-flex;align-items:center;gap:6px;}
+#health-chip .led{width:7px;height:7px;border-radius:50%;background:#e05a5a;}
+#health-chip.ok .led{background:var(--lg-accent);}
+</style>
+</head>
+<body>
+  <!-- 舞台 -->
+  <div class="bg-fix"><video autoplay loop muted playsinline src="assets/wave.mp4"></video><div class="bg-vignette"></div></div>
+  <div class="guide guide-l"></div><div class="guide guide-r"></div>
+
+  <!-- noise filter（shiny 文字用，Task 3） -->
+  <svg width="0" height="0" style="position:absolute" aria-hidden="true">
+    <filter id="ime-noise">
+      <feTurbulence type="fractalNoise" baseFrequency="0.85" numOctaves="2" stitchTiles="stitch"/>
+      <feColorMatrix type="matrix" values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 0.3 0"/>
+      <feComposite in2="SourceGraphic" operator="in" result="noise"/>
+      <feBlend in="SourceGraphic" in2="noise" mode="multiply"/>
+    </filter>
+  </svg>
+
+  <!-- 導覽列 -->
+  <div class="topbar">
+    <nav class="lg lg-navbar" data-lg>
+      <span class="lg-navbar__brand brand"><b>iMarine SU Exchange</b><span>TCX 海運合規專區 PoC</span></span>
+      <div class="lg lg-tabs" data-lg role="tablist" id="nav-tabs">
+        <span class="lg-tabs__pill"></span>
+        <button class="lg-tabs__tab is-active" role="tab" data-page="dashboard">儀表板</button>
+        <button class="lg-tabs__tab" role="tab" data-page="market">市場</button>
+        <button class="lg-tabs__tab" role="tab" data-page="audit">稽核</button>
+      </div>
+      <span class="lg-navbar__spacer"></span>
+      <span class="lg-chip" id="health-chip"><span class="led"></span><span id="health-text">連線中…</span></span>
+    </nav>
+  </div>
+
+  <main class="wrap">
+    <section class="page active" id="page-dashboard"><!-- Task 3 --></section>
+    <section class="page" id="page-market"><!-- Task 4 --></section>
+    <section class="page" id="page-audit"><!-- Task 6 --></section>
+  </main>
+
+  <!-- modals（Task 3–6 追加於此） -->
+  <div id="modals"></div>
+
+<script src="liquid-glass.js"></script>
+<script>
+LiquidGlass.init();
+
+/* ── 分頁切換與 stagger 進場 ── */
+function ensureEntered(pageId){
+  const pg = document.getElementById(pageId);
+  if (pg.classList.contains("active") && !pg.classList.contains("entered")){
+    pg.querySelectorAll(".anim").forEach((el,i)=>el.style.setProperty("--d",(i*0.06)+"s"));
+    requestAnimationFrame(()=>requestAnimationFrame(()=>pg.classList.add("entered")));
+  }
+}
+function switchPage(name){
+  document.querySelectorAll(".page").forEach(p=>{
+    p.classList.toggle("active", p.id === "page-"+name);
+    p.classList.remove("entered");
+  });
+  ensureEntered("page-"+name);
+}
+document.querySelectorAll("#nav-tabs .lg-tabs__tab").forEach(t=>
+  t.addEventListener("click",()=>switchPage(t.dataset.page)));
+switchPage("dashboard");
+</script>
+</body>
+</html>
