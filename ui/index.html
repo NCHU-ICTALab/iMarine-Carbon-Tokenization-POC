@@ -223,6 +223,24 @@ html,body{margin:0;background:#070b11;color:var(--ink-90);
         </div>
       </div>
     </div>
+    <div class="lg-modal" id="m-retire">
+      <div class="lg-modal__overlay" data-lg-close></div>
+      <div class="lg-modal__panel lg" data-lg role="dialog" aria-label="除役 SU">
+        <div class="eyebrow"><span class="dot"></span><span class="lbl">除役銷毀</span><span class="tag">Retire</span></div>
+        <p class="mono" id="retire-summary" style="color:var(--ink-60);font-size:13px"></p>
+        <div class="lg-radio-group" role="radiogroup" style="display:flex;flex-direction:column;gap:8px;margin:14px 0">
+          <label class="lg-radio"><input type="radio" name="purpose" value="0"><span class="lg-radio__box"></span><span class="lg-radio__label">NZF_REWARD — 淨零基金獎勵</span></label>
+          <label class="lg-radio"><input type="radio" name="purpose" value="1"><span class="lg-radio__box"></span><span class="lg-radio__label">EU_ETS_OFFSET — 歐盟碳交易抵換</span></label>
+          <label class="lg-radio"><input type="radio" name="purpose" value="2"><span class="lg-radio__box"></span><span class="lg-radio__label">PORT_FEE_REBATE — 港埠費率回饋</span></label>
+          <label class="lg-radio"><input type="radio" name="purpose" value="3" checked><span class="lg-radio__box"></span><span class="lg-radio__label">SCOPE3_OFFSET — Scope 3 抵換</span></label>
+        </div>
+        <p style="font-size:12px;color:var(--ink-40)">除役即在鏈上 burn，永久銷毀且不可逆；Retired 事件將留存為稽核紀錄。</p>
+        <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:14px">
+          <button class="lg lg-btn" data-lg data-lg-close>取消</button>
+          <button class="lg lg-btn lg-btn--primary" data-lg id="btn-retire-go">確認除役</button>
+        </div>
+      </div>
+    </div>
   </div>
 
 <script src="liquid-glass.js"></script>
@@ -491,6 +509,27 @@ document.getElementById("btn-buy-go").addEventListener("click", async e=>{
     await api("/buy", {token_id:S.ctxToken});
     toastOk("交易完成", `SU #${S.ctxToken} 已由買家購入（transfer-once 已用畢）`);
     document.querySelector("#m-buy [data-lg-close]").click();
+    await refresh();
+  }catch(_){}
+  setBusy(e.target, false);
+});
+
+/* ── 除役 ── */
+document.addEventListener("click", e=>{
+  const t = e.target.closest('[data-lg-open="#m-retire"][data-token]');
+  if (!t) return;
+  const u = S.sus.find(x=>x.token_id === Number(t.dataset.token));
+  if (u) document.getElementById("retire-summary").textContent =
+    `SU #${u.token_id} · ${imo(u.ship_id)} · ${fmt(u.amount)} t`;
+});
+document.getElementById("btn-retire-go").addEventListener("click", async e=>{
+  if (S.busy || S.ctxToken === null) return;
+  const purpose = Number(document.querySelector('input[name="purpose"]:checked').value);
+  setBusy(e.target, true);
+  try{
+    await api("/retire", {token_id:S.ctxToken, purpose});
+    toastOk("已除役銷毀", `SU #${S.ctxToken} 已 burn——至「稽核」分頁查看 Retired 事件與 verify`);
+    document.querySelector("#m-retire [data-lg-close]").click();
     await refresh();
   }catch(_){}
   setBusy(e.target, false);
