@@ -50,7 +50,8 @@ def apply_receipt(su, market, receipt):
                          VALUES (?,?,?,?,?, 'held', ?)
                          ON CONFLICT(token_id) DO UPDATE SET
                            ship_id=excluded.ship_id, amount=excluded.amount,
-                           expiry=excluded.expiry, owner=excluded.owner, data_hash=excluded.data_hash""",
+                           expiry=excluded.expiry, owner=excluded.owner, data_hash=excluded.data_hash,
+                           status='held', purpose=NULL""",
                       (a["tokenId"], a["shipId"], a["amount"], a["expiry"], a["to"], _hex0x(a["dataHash"])))
             _log(c, "Issued", a["tokenId"], {"to": a["to"], "amount": a["amount"]})
 
