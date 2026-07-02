@@ -3,6 +3,10 @@ CLAUDE.md
 HANDOFF.md
 碳權代幣化PoC_實作規劃_v2.md
 碳權代幣化PoC_實作教學書.md
+# superpowers spec/plan 等內部規劃文件
+docs/
+# SDD 執行 scratch（brief/report/diff）
+.superpowers/
 
 # --- 相依與建置產物 ---
 node_modules/
