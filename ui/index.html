@@ -112,6 +112,106 @@ html,body{margin:0;background:#070b11;color:var(--ink-90);
 <script>
 LiquidGlass.init();
 
+/* ── state 與工具 ── */
+const API = "http://127.0.0.1:8000";
+const S = {sus:[], events:[], roles:{}, prices:{}, online:false, busy:false, ctxToken:null};
+const fmt = n => Number(n).toLocaleString("en-US");
+const imo = id => "IMO" + id;
+const shortHash = h => h ? h.slice(0,10) + "…" + h.slice(-6) : "-";
+function toastOk(title, message){ LiquidGlass.toast({title, message, duration:3500}); }
+function toastErr(e){ LiquidGlass.toast({title:"操作失敗", message:String(e.message||e), duration:6000}); }
+
+async function api(path, body){
+  const isPost = body !== undefined;
+  const opts = isPost
+    ? {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify(body)}
+    : {};
+  const res = await fetch(API + path, opts);
+  if (!res.ok){
+    let msg = "HTTP " + res.status;
+    try { msg = (await res.json()).error || msg; } catch(_){}
+    const err = new Error(msg);
+    if (isPost) toastErr(err);   // GET 失敗不 toast（輪詢/verify 各自處理，避免 4 秒一則的洗版）
+    throw err;
+  }
+  return res.json();
+}
+
+function setBusy(btn, on){
+  S.busy = on;
+  if (btn){ btn.disabled = on; btn.dataset.label ??= btn.textContent;
+    btn.textContent = on ? "送出中…" : btn.dataset.label; }
+}
+
+/* ── 掛單價格表：從 events（新→舊）反推 ── */
+function derivePrices(events){
+  const m = {};
+  for (const e of [...events].reverse()){        // 轉為舊→新
+    if (e.name === "Listed"){ try{ m[e.token_id] = JSON.parse(e.detail).price / 1e6; }catch(_){} }
+    if (e.name === "Sold" || e.name === "Unlisted") delete m[e.token_id];
+  }
+  return m;
+}
+
+/* ── 輪詢 ── */
+let pollTimer = null;
+async function refresh(){
+  try{
+    const [st, ev] = await Promise.all([api("/state"), api("/events?limit=200")]);
+    S.sus = st.sus; S.roles = st.roles; S.events = ev; S.prices = derivePrices(ev);
+    setOnline(true);
+  }catch(_){ setOnline(false); }
+  renderAll();
+  clearTimeout(pollTimer);
+  pollTimer = setTimeout(refresh, S.online ? 4000 : 10000);
+}
+function setOnline(ok){
+  S.online = ok;
+  const chip = document.getElementById("health-chip");
+  chip.classList.toggle("ok", ok);
+  document.getElementById("health-text").textContent = ok ? "鏈路連線" : "後端離線";
+  document.querySelectorAll("[data-needs-backend]").forEach(b=>b.disabled = !ok);
+}
+function renderAll(){
+  if (typeof renderDashboard === "function") renderDashboard();
+  if (typeof renderMarket === "function") renderMarket();
+  if (typeof renderAudit === "function") renderAudit();
+  // 動態重繪出來的按鈕要補套離線 disable（setOnline 只處理當下存在的節點）
+  document.querySelectorAll("[data-needs-backend]").forEach(b=>b.disabled = !S.online);
+}
+
+/* ── modal context：任何帶 data-token 的觸發元素 ── */
+document.addEventListener("click", e=>{
+  const el = e.target.closest("[data-token]");
+  if (el) S.ctxToken = Number(el.dataset.token);
+});
+
+/* ── reviveGlass（UI-ToolBox CLAUDE.md 實測解法：動態折射面板顯影） ── */
+function reviveGlass(root = document){
+  if (!LiquidGlass.supported) return;
+  const panels = [...root.querySelectorAll("[data-lg]")];
+  const saved = panels.map(el=>[el, el.style.backdropFilter, el.style.getPropertyValue("-webkit-backdrop-filter")]);
+  saved.forEach(([el,a,b])=>{ if(a||b){ el.style.backdropFilter="none"; el.style.setProperty("-webkit-backdrop-filter","none"); } });
+  requestAnimationFrame(()=>{
+    saved.forEach(([el,a,b])=>{ if(a) el.style.backdropFilter=a; if(b) el.style.setProperty("-webkit-backdrop-filter",b); });
+    const link = [...document.querySelectorAll('link[rel="stylesheet"]')].reverse()
+      .find(e=>{ try{ return new URL(e.href).origin === location.origin; }catch(_){ return false; } });
+    if (!link) return;
+    const base = link.href.split("?")[0];
+    const clone = link.cloneNode();
+    clone.href = base + "?lgrc=" + Date.now();
+    clone.addEventListener("load", ()=>link.remove(), {once:true});
+    link.after(clone);
+  });
+}
+let reviveTimers = [];
+function scheduleRevive(){
+  reviveTimers.forEach(clearTimeout);
+  reviveTimers = [400, 900, 1800, 3500].map(ms=>setTimeout(reviveGlass, ms));
+}
+
+refresh();
+
 /* ── 分頁切換與 stagger 進場 ── */
 function ensureEntered(pageId){
   const pg = document.getElementById(pageId);
