@@ -238,6 +238,16 @@ const shortHash = h => h ? h.slice(0,10) + "…" + h.slice(-6) : "-";
 function toastOk(title, message){ LiquidGlass.toast({title, message, duration:3500}); }
 function toastErr(e){ LiquidGlass.toast({title:"操作失敗", message:String(e.message||e), duration:6000}); }
 
+// 後端把鏈上 revert 的原始 web3 錯誤（含 {'code':-32603,...}）原樣塞進 400 的 error 欄；
+// 這裡萃取人類可讀的 reason（如 Market: not for sale / transfer once only），供 toast 顯示。
+function cleanReason(msg){
+  const s = String(msg);
+  const m = s.match(/reason string ['"]([^'"]+)['"]/) || s.match(/custom error ['"]([^'"]+)['"]/);
+  if (m) return m[1];
+  if (!/['"]?code['"]?\s*:/.test(s)) return s;   // 後端自組的乾淨訊息（中文等）→ 原樣
+  return "鏈上交易被拒（revert）";                 // 原始 dict 但抓不到 reason → 通用訊息
+}
+
 async function api(path, body){
   const isPost = body !== undefined;
   const opts = isPost
@@ -246,7 +256,7 @@ async function api(path, body){
   const res = await fetch(API + path, opts);
   if (!res.ok){
     let msg = "HTTP " + res.status;
-    try { msg = (await res.json()).error || msg; } catch(_){}
+    try { msg = cleanReason((await res.json()).error || msg); } catch(_){}
     const err = new Error(msg);
     if (isPost) toastErr(err);   // GET 失敗不 toast（輪詢/verify 各自處理，避免 4 秒一則的洗版）
     throw err;
