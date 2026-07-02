@@ -1,0 +1,1 @@
+# 佔位檔：保留空目錄於 git。資料來源層放這裡：base.py（抽象介面）、csv_source.py、imarine_source.py，以及上層 gfi.py / validate.py / synth_fleet.py / build_requests.py（放在 data/）。

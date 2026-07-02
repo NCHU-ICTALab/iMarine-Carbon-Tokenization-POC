@@ -1,0 +1,1 @@
+# 佔位檔：保留空目錄於 git。後端放這裡：config.py / chain_client.py / ledger.py / service.py / demo.py / api.py。

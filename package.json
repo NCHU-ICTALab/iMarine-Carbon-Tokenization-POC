@@ -1,0 +1,19 @@
+{
+  "name": "imaribe-carbon-tokenization-poc",
+  "version": "0.1.0",
+  "private": true,
+  "description": "港口碳權代幣化 PoC — TCX 海運合規專區 RWA 雛形",
+  "scripts": {
+    "chain": "hardhat node",
+    "deploy": "hardhat run scripts/deploy.js --network localhost",
+    "test": "hardhat test"
+  },
+  "devDependencies": {
+    "@nomicfoundation/hardhat-toolbox": "^5.0.0",
+    "dotenv": "^16.4.5",
+    "hardhat": "^2.22.0"
+  },
+  "dependencies": {
+    "@openzeppelin/contracts": "^5.1.0"
+  }
+}

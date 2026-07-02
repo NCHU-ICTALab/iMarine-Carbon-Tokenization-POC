@@ -8,16 +8,26 @@ HANDOFF.md
 node_modules/
 artifacts/
 cache/
+typechain-types/
+coverage/
+coverage.json
 .venv/
 __pycache__/
+*.pyc
 
-# --- 機密與環境 ---
+# --- 機密與環境（.env 用精確比對，勿改成 .env*，否則會誤擋想公開的 .env.example）---
 .env
 
 # --- 執行期產物 ---
 data/out/
 backend/*.db
+backend/*.db-*
 shared/contracts.*.json
 
-# --- 作業系統 ---
+# --- 編輯器 ---
+.vscode/
+
+# --- 作業系統與日誌 ---
 .DS_Store
+._*
+*.log

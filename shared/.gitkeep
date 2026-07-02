@@ -1,0 +1,1 @@
+# 佔位檔：保留空目錄於 git。deploy 後會在此自動產生 contracts.<network>.json（該檔已 gitignore）。
