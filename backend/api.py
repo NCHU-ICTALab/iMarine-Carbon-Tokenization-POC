@@ -31,6 +31,12 @@ def events(limit: int = 50):
     return ledger.recent_events(limit)
 
 
+@app.get("/verify/{token_id}")
+def verify(token_id: int):
+    # 防竄改回驗：鏈上 dataHash vs 鏈下明細重算的 keccak（match=True 代表未被竄改）
+    return service.verify_su(token_id)
+
+
 @app.post("/pipeline")
 def pipeline():
     res = service.issue_from_requests("data/out/minting_requests.json")

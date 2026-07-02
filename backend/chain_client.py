@@ -54,6 +54,13 @@ class ChainClient:
         except ContractLogicError as e:
             raise ChainTxError(f"SU #{token_id} 不存在或已除役：{e}") from e
 
+    # ── 讀鏈上防竄改指紋與鏈下明細指標（供 /verify 回驗）──
+    def data_hash(self, token_id):
+        return "0x" + self.su.functions.dataHash(int(token_id)).call().hex().removeprefix("0x")
+
+    def data_uri(self, token_id):
+        return self.su.functions.dataURI(int(token_id)).call()
+
     # ── 發行（由 issuer 簽）──
     def mint(self, to_role, ship_id, amount, uri, data_hash):
         to = self.roles[to_role]
