@@ -71,9 +71,6 @@ html,body{margin:0;background:#070b11;color:var(--ink-90);
 #health-chip.ok .led{background:var(--lg-accent);}
 
 /* ── hero（空狀態）── */
-.hero{min-height:56vh;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;}
-.hero h1{margin:0;font-size:clamp(44px,7vw,88px);font-weight:700;letter-spacing:-.04em;line-height:.95;}
-.hero .sub{margin:26px 0 34px;max-width:34rem;color:var(--ink-60);font-size:16px;line-height:1.6;}
 .shiny{background:linear-gradient(90deg,#7a5c1c 0%,#E9BC63 28%,#fff3d0 50%,#E9BC63 72%,#7a5c1c 100%);
   background-size:200% auto;-webkit-background-clip:text;background-clip:text;color:transparent;
   animation:shiny 6s linear infinite;filter:url(#ime-noise);}
@@ -87,17 +84,33 @@ html,body{margin:0;background:#070b11;color:var(--ink-90);
 .lg-stat__value{letter-spacing:-.03em;}
 @media(max-width:900px){.stats{grid-template-columns:repeat(2,1fr);}.duo{grid-template-columns:1fr;}}
 
-/* ── 市場 ── */
-.market{display:grid;grid-template-columns:2fr 1fr;gap:16px;align-items:start;}
-.wall{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:14px;}
-.su-card .lg-card__title{display:flex;justify-content:space-between;align-items:baseline;}
-.su-card .price{font-size:20px;letter-spacing:-.02em;}
+/* ── 工作台 ── */
+.workbench{display:grid;grid-template-columns:240px 1fr;gap:16px;align-items:start;}
+.rail{position:sticky;top:104px;display:flex;flex-direction:column;gap:18px;padding:18px;border-radius:16px;}
+.rail-group{display:flex;flex-direction:column;gap:8px;}
+.rail-h{font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-40);font-weight:600;}
+.fchip{display:flex;align-items:center;gap:8px;padding:7px 10px;border:1px solid var(--hair);border-radius:10px;
+  background:none;color:var(--ink-60);font-size:13px;cursor:pointer;text-align:left;font-family:inherit;
+  transition:color .25s var(--ease),border-color .25s var(--ease);}
+.fchip:hover{color:var(--ink-90);border-color:rgba(255,255,255,.25);}
+.fchip.is-on{color:var(--lg-accent);border-color:var(--lg-accent);}
+.fchip .n{margin-left:auto;font-size:11px;color:var(--ink-40);}
+.rail select,.wb-toolbar select{background:rgba(255,255,255,.06);border:1px solid var(--hair);border-radius:10px;
+  color:var(--ink-90);padding:8px 10px;font-size:13px;font-family:inherit;}
+.rail select:focus,.wb-toolbar select:focus{outline:1px solid var(--lg-accent);}
+.rail select option{background:#0a0f16;}
+#f-count{margin:0;font-size:12px;color:var(--ink-50);}
+.wb-toolbar{display:flex;align-items:center;gap:10px;margin:0 0 14px;}
+.su-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:14px;}
+.su-card{cursor:pointer;}
+.su-card .su-top{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:2px;}
+.su-card .price,.su-card .tonnes{font-size:22px;letter-spacing:-.02em;font-weight:600;}
+.su-card .su-sub{color:var(--ink-50);font-size:12px;margin-bottom:10px;}
 .su-card .meta-row{display:flex;justify-content:space-between;color:var(--ink-50);font-size:12px;margin:2px 0;}
-.side-list{list-style:none;margin:0;padding:0;}
-.side-list li{display:flex;align-items:center;justify-content:space-between;gap:8px;
-  padding:9px 4px;border-bottom:1px solid var(--hair);font-size:13px;}
+.su-card .su-act{display:flex;justify-content:flex-end;margin-top:10px;}
 .empty-note{color:var(--ink-40);font-size:13px;padding:22px;text-align:center;}
-@media(max-width:900px){.market{grid-template-columns:1fr;}}
+.genesis{max-width:34rem;margin:8vh auto;text-align:center;padding:36px 30px;}
+@media(max-width:900px){.workbench{grid-template-columns:1fr;}.rail{position:static;}}
 
 /* ── 稽核 ── */
 .audit{display:grid;grid-template-columns:2fr 1fr;gap:16px;align-items:start;}
@@ -159,21 +172,41 @@ html,body{margin:0;background:#070b11;color:var(--ink-90);
         <div class="lg-stat__row"><span class="lg-stat__value" id="stat-retired" data-lg-value="0"></span></div></div>
     </div>
     <section class="page active" id="page-workbench">
-      <div class="market">
-        <div>
-          <div class="eyebrow anim"><span class="dot"></span><span class="lbl">掛單牆</span><span class="tag" id="wall-tag">0 筆掛單中</span></div>
-          <div class="wall" id="listing-wall"></div>
-          <div class="empty-note" id="wall-empty">尚無掛單——從右側「航商持有」上架第一張 SU。</div>
-        </div>
-        <div>
-          <div class="lg lg-card anim" data-lg style="margin-bottom:14px">
-            <div class="eyebrow"><span class="dot"></span><span class="lbl">航商持有</span><span class="tag" id="held-ship-tag">0</span></div>
-            <ul class="side-list" id="held-shipping"></ul>
+      <div id="wb-genesis" class="lg-static lg-card genesis anim" hidden>
+        <h1 style="margin:0 0 12px;font-size:clamp(28px,3.4vw,38px);letter-spacing:-.03em;line-height:1.1">
+          船隊超額減碳 <span class="shiny">414,312 噸</span></h1>
+        <p style="color:var(--ink-60);font-size:14px;line-height:1.7;margin:0 0 22px">
+          108 筆 iMarine 核發請求已完成 GFI 驗證，正待鑄造為可稽核的 Surplus Unit（ERC-721）。</p>
+        <button class="lg lg-btn lg-btn--pill lg-btn--primary" data-lg data-lg-open="#m-issue" data-needs-backend>批次發行上鏈</button>
+      </div>
+      <div class="workbench" id="wb-main" hidden>
+        <aside class="lg-static rail anim">
+          <div class="rail-group"><b class="rail-h">狀態</b>
+            <button class="fchip" data-fs="held">持有中<span class="n" data-n="held"></span></button>
+            <button class="fchip" data-fs="listed">掛單中<span class="n" data-n="listed"></span></button>
+            <button class="fchip" data-fs="retired">已除役<span class="n" data-n="retired"></span></button>
           </div>
-          <div class="lg lg-card anim" data-lg>
-            <div class="eyebrow"><span class="dot"></span><span class="lbl">買家持有</span><span class="tag" id="held-buyer-tag">0</span></div>
-            <ul class="side-list" id="held-buyer"></ul>
+          <div class="rail-group"><b class="rail-h">持有者</b>
+            <button class="fchip" data-fr="shipping">航商</button>
+            <button class="fchip" data-fr="buyer">買家</button>
           </div>
+          <div class="rail-group"><b class="rail-h">船舶</b>
+            <select id="f-ship"><option value="">全部船舶</option></select>
+          </div>
+          <button class="lg lg-btn lg-btn--sm" data-lg id="f-clear">清除篩選</button>
+          <p id="f-count" class="mono">顯示 0 / 0 筆</p>
+        </aside>
+        <div>
+          <div class="wb-toolbar anim">
+            <div class="eyebrow" style="margin:0;flex:1"><span class="dot"></span><span class="lbl">SU 資產</span><span class="tag" id="wb-tag">0 筆</span></div>
+            <select id="wb-sort">
+              <option value="id">排序：Token ID</option>
+              <option value="tonnes">排序：噸數</option>
+              <option value="price">排序：價格（掛單優先）</option>
+            </select>
+          </div>
+          <div class="su-grid" id="su-grid"></div>
+          <div class="empty-note" id="wb-empty" hidden>無符合篩選的 SU——調整左側條件或清除篩選。</div>
         </div>
       </div>
     </section>
@@ -347,7 +380,7 @@ function setOnline(ok){
 }
 function renderAll(){
   if (typeof renderStats === "function") renderStats();
-  if (typeof renderMarket === "function") renderMarket();
+  if (typeof renderWorkbench === "function") renderWorkbench();
   if (typeof renderAudit === "function") renderAudit();
   // 動態重繪出來的按鈕要補套離線 disable（setOnline 只處理當下存在的節點）
   document.querySelectorAll("[data-needs-backend]").forEach(b=>b.disabled = !S.online);
@@ -432,59 +465,134 @@ document.getElementById("btn-issue-go").addEventListener("click", async e=>{
   setBusy(e.target, false);
 });
 
-/* ── 市場 ── */
-const wallCards = new Map();   // token_id -> card el
-function cardFor(u){
+/* ── 工作台 ── */
+const F = {status:new Set(), roles:new Set(), ship:"", sort:"id"};
+const STATUS_TEXT = {held:"持有中", listed:"掛單中", retired:"已除役"};
+const ROLE_TEXT = {shipping:"航商", buyer:"買家"};
+
+document.querySelectorAll(".fchip[data-fs]").forEach(b=>b.addEventListener("click",()=>{
+  b.classList.toggle("is-on");
+  b.classList.contains("is-on") ? F.status.add(b.dataset.fs) : F.status.delete(b.dataset.fs);
+  renderWorkbench();
+}));
+document.querySelectorAll(".fchip[data-fr]").forEach(b=>b.addEventListener("click",()=>{
+  b.classList.toggle("is-on");
+  b.classList.contains("is-on") ? F.roles.add(b.dataset.fr) : F.roles.delete(b.dataset.fr);
+  renderWorkbench();
+}));
+document.getElementById("f-ship").addEventListener("change", e=>{ F.ship = e.target.value; renderWorkbench(); });
+document.getElementById("wb-sort").addEventListener("change", e=>{ F.sort = e.target.value; renderWorkbench(); });
+document.getElementById("f-clear").addEventListener("click", ()=>{
+  F.status.clear(); F.roles.clear(); F.ship = "";
+  document.querySelectorAll(".fchip[data-fs],.fchip[data-fr]").forEach(b=>b.classList.remove("is-on"));
+  document.getElementById("f-ship").value = "";
+  renderWorkbench();
+});
+
+function filteredSus(){
+  return S.sus.filter(u=>
+    (!F.status.size || F.status.has(u.status)) &&
+    (!F.roles.size  || F.roles.has(u.owner_role)) &&
+    (!F.ship || String(u.ship_id) === F.ship));
+}
+function sortedSus(list){
+  const l = [...list];
+  if (F.sort === "tonnes") l.sort((a,b)=>b.amount-a.amount);
+  else if (F.sort === "price") l.sort((a,b)=>{
+    const pa = a.status==="listed" ? (S.prices[a.token_id] ?? Infinity) : null;
+    const pb = b.status==="listed" ? (S.prices[b.token_id] ?? Infinity) : null;
+    if (pa!==null && pb!==null) return pa-pb;   // 掛單中在前、價格升冪
+    if (pa!==null) return -1;
+    if (pb!==null) return 1;
+    return b.amount-a.amount;                   // 未掛單在後、噸數降冪
+  });
+  else l.sort((a,b)=>a.token_id-b.token_id);
+  return l;
+}
+
+/* 卡片兩型：掛單中=折射（attach+revive）、其他=lg-static 磨砂（108 張全折射會拖垮效能） */
+const gridCards = new Map();   // token_id -> {el, variant}
+function actionBtn(u){         // Task 3 會把動作移入 drawer 後刪除本函式
+  if (u.status==="listed") return `<button class="lg lg-btn lg-btn--sm lg-btn--accent" data-lg data-token="${u.token_id}" data-lg-open="#m-buy" data-needs-backend>購買</button>`;
+  if (u.status==="held" && u.owner_role==="shipping") return `<button class="lg lg-btn lg-btn--sm" data-lg data-token="${u.token_id}" data-lg-open="#m-list" data-needs-backend>上架</button>`;
+  if (u.status==="held" && u.owner_role==="buyer") return `<button class="lg lg-btn lg-btn--sm lg-btn--accent" data-lg data-token="${u.token_id}" data-lg-open="#m-retire" data-needs-backend>除役</button>`;
+  return "";
+}
+function suCard(u){
+  const listed = u.status === "listed";
   const el = document.createElement("div");
-  el.className = "lg lg-card su-card";
-  el.setAttribute("data-lg","");
+  el.className = listed ? "lg lg-card su-card" : "lg-static lg-card su-card";
+  if (listed) el.setAttribute("data-lg","");
   el.innerHTML = `
-    <h4 class="lg-card__title"><span>SU #${u.token_id}</span><span class="lg-chip">航商掛單</span></h4>
-    <div class="meta-row"><span>船舶</span><span class="mono">${imo(u.ship_id)}</span></div>
-    <div class="meta-row"><span>減碳量</span><span class="mono gold" data-f="amount">${fmt(u.amount)} t</span></div>
+    <div class="su-top">${listed
+      ? `<span class="price mono gold" data-f="price"></span>`
+      : `<span class="tonnes mono gold">${fmt(u.amount)} t</span>`}
+      <span class="pill ${u.status}">${STATUS_TEXT[u.status]}</span></div>
+    <div class="su-sub mono">SU #${u.token_id} · ${imo(u.ship_id)}</div>
+    ${listed ? `<div class="meta-row"><span>減碳量</span><span class="mono">${fmt(u.amount)} t</span></div>` : ""}
+    <div class="meta-row"><span>持有者</span><span data-f="owner">${ROLE_TEXT[u.owner_role] ?? "-"}</span></div>
+    ${u.status==="retired" ? `<div class="meta-row"><span>用途</span><span>${u.purpose_name ?? "-"}</span></div>` : ""}
     <div class="meta-row"><span>dataHash</span><span class="mono">${shortHash(u.data_hash)}</span></div>
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-top:12px">
-      <span class="price mono gold" data-f="price"></span>
-      <button class="lg lg-btn lg-btn--sm lg-btn--accent" data-lg data-token="${u.token_id}"
-        data-lg-open="#m-buy" data-needs-backend>購買</button>
-    </div>`;
+    <div class="su-act">${actionBtn(u)}</div>`;
+  el.addEventListener("click", e=>{
+    if (e.target.closest("button")) return;                       // 動作鈕不觸發 drawer
+    if (typeof openDrawer === "function") openDrawer(u.token_id); // Task 3 定義
+  });
   return el;
 }
-function renderMarket(){
-  const listed = S.sus.filter(u=>u.status==="listed");
-  const wall = document.getElementById("listing-wall");
-  const seen = new Set();
-  let added = false;
-  listed.forEach(u=>{
-    seen.add(u.token_id);
-    let el = wallCards.get(u.token_id);
-    if (!el){
-      el = cardFor(u); wallCards.set(u.token_id, el); wall.appendChild(el);
-      LiquidGlass.attach(el); el.querySelectorAll("[data-lg]").forEach(c=>LiquidGlass.attach(c));
-      added = true;
-    }
-    const p = S.prices[u.token_id];
-    el.querySelector('[data-f="price"]').textContent = p !== undefined ? fmt(p)+" mUSD" : "— mUSD";
-  });
-  [...wallCards.keys()].filter(id=>!seen.has(id)).forEach(id=>{ wallCards.get(id).remove(); wallCards.delete(id); });
-  if (added) scheduleRevive();
-  document.getElementById("wall-tag").textContent = listed.length + " 筆掛單中";
-  document.getElementById("wall-empty").hidden = listed.length > 0;
+function renderWorkbench(){
+  const has = S.sus.length > 0;
+  document.getElementById("wb-genesis").hidden = has;
+  document.getElementById("wb-main").hidden = !has;
+  if (!has){ ensureEntered("page-workbench"); return; }
 
-  renderSide("held-shipping","held-ship-tag",
-    S.sus.filter(u=>u.status==="held" && u.owner_role==="shipping"),
-    u=>`<button class="lg lg-btn lg-btn--sm" data-lg data-token="${u.token_id}" data-lg-open="#m-list" data-needs-backend>上架</button>`);
-  renderSide("held-buyer","held-buyer-tag",
-    S.sus.filter(u=>u.status==="held" && u.owner_role==="buyer"),
-    u=>`<button class="lg lg-btn lg-btn--sm lg-btn--accent" data-lg data-token="${u.token_id}" data-lg-open="#m-retire" data-needs-backend>除役</button>`);
+  const sel = document.getElementById("f-ship");
+  const ships = [...new Set(S.sus.map(u=>u.ship_id))].sort((a,b)=>a-b);
+  if (sel.options.length !== ships.length + 1){
+    sel.innerHTML = `<option value="">全部船舶</option>` + ships.map(s=>`<option value="${s}">${imo(s)}</option>`).join("");
+    sel.value = F.ship;
+  }
+  ["held","listed","retired"].forEach(st=>{
+    document.querySelector(`[data-n="${st}"]`).textContent = S.sus.filter(u=>u.status===st).length;
+  });
+
+  const list = sortedSus(filteredSus());
+  document.getElementById("f-count").textContent = `顯示 ${list.length} / ${S.sus.length} 筆`;
+  document.getElementById("wb-tag").textContent = `${list.length} 筆`;
+  document.getElementById("wb-empty").hidden = list.length > 0;
+
+  const grid = document.getElementById("su-grid");
+  const sig = list.map(u=>u.token_id+":"+u.status).join(",");
+  if (grid.dataset.sig !== sig){                 // 集合/順序/狀態變了才動 DOM（穩態 4s 輪詢零重建）
+    grid.dataset.sig = sig;
+    let newListed = false;
+    const keep = new Set();
+    list.forEach(u=>{
+      keep.add(u.token_id);
+      let c = gridCards.get(u.token_id);
+      if (!c || c.variant !== u.status){
+        if (c) c.el.remove();
+        c = {el: suCard(u), variant: u.status};
+        gridCards.set(u.token_id, c);
+        if (u.status === "listed"){
+          LiquidGlass.attach(c.el);
+          c.el.querySelectorAll("[data-lg]").forEach(x=>LiquidGlass.attach(x));
+          newListed = true;
+        }
+      }
+      grid.appendChild(c.el);                    // 依排序順序排入（既有節點會移動）
+    });
+    [...gridCards.keys()].filter(id=>!keep.has(id)).forEach(id=>{ gridCards.get(id).el.remove(); gridCards.delete(id); });
+    if (newListed) scheduleRevive();
+  }
+  list.forEach(u=>{                              // 穩態只更新文字
+    const el = gridCards.get(u.token_id).el;
+    const p = el.querySelector('[data-f="price"]');
+    if (p) p.textContent = S.prices[u.token_id] !== undefined ? fmt(S.prices[u.token_id])+" mUSD" : "— mUSD";
+    const o = el.querySelector('[data-f="owner"]');
+    if (o) o.textContent = ROLE_TEXT[u.owner_role] ?? "-";
+  });
   ensureEntered("page-workbench");
-}
-function renderSide(listId, tagId, items, btnHtml){
-  document.getElementById(tagId).textContent = items.length;
-  document.getElementById(listId).innerHTML = items.length
-    ? items.map(u=>`<li><span class="mono">#${u.token_id} ${imo(u.ship_id)}</span>
-        <span class="mono" style="color:var(--ink-50)">${fmt(u.amount)} t</span>${btnHtml(u)}</li>`).join("")
-    : `<li style="border:none;color:var(--ink-40)">（無）</li>`;
 }
 
 /* 開 modal 時帶入 SU 摘要 */
