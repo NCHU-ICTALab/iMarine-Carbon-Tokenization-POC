@@ -1,6 +1,8 @@
 import json
 import os
+import re
 from web3 import Web3
+from web3.logs import DISCARD
 from .chain_client import ChainClient, ChainTxError
 from . import ledger
 
@@ -84,3 +86,43 @@ def verify_su(token_id) -> dict:
     with open(path, encoding="utf-8") as f:
         recomputed = "0x" + Web3.keccak(text=f.read()).hex().removeprefix("0x")
     return {**base, "match": recomputed.lower() == onchain_hash.lower(), "recomputed_hash": recomputed}
+
+
+def issue_single(ship_id: str, reporting_period: str, attained_gfi: float,
+                 energy_mj: int, fuel: str) -> dict:
+    """單筆自訂發行：原始驗證數據 → 資料層 build_single（算噸數/產鏈下檔/dataHash）→ 鑄造。
+
+    缺額、重複、格式錯誤 raise ValueError（api 層轉 400）；
+    鑄造失敗補償刪掉剛寫的鏈下檔，避免孤兒檔讓重試被重複防呆誤擋。
+    """
+    if not re.fullmatch(r"IMO\d+", str(ship_id)):
+        raise ValueError("ship_id 格式異常（應為 IMO+純數字）")
+    if not re.fullmatch(r"\d{4}-\d{2}", str(reporting_period)):
+        raise ValueError("reporting_period 格式異常（應為 YYYY-MM）")
+
+    fname = f"{ship_id}_{reporting_period}.json"
+    fpath = os.path.join(OFFCHAIN_DIR, fname)
+    if os.path.exists(fpath):
+        raise ValueError(f"{ship_id} {reporting_period} 已發行過（明細檔已存在）")
+
+    # 資料層純函式＝計算/驗證/寫鏈下檔的單一真相（介面鐵則：後端不管資料怎麼算出來）
+    from data.build_requests import build_single
+    req = build_single({
+        "ship_id": ship_id, "reporting_period": reporting_period,
+        "attained_gfi": attained_gfi, "energy_mj": energy_mj, "fuel": fuel,
+    })
+
+    try:
+        rcpt = client.mint(req["to_role"], req["ship_id"].replace("IMO", ""),
+                           req["amount_tonnes"], req["uri"], req["data_hash"])
+    except ChainTxError:
+        try:
+            os.remove(fpath)   # 補償：best-effort，刪不掉就留給手動處理（PoC 接受）
+        except OSError:
+            pass
+        raise
+    ledger.apply_receipt(client.su, client.market, rcpt)
+    issued = client.su.events.Issued().process_receipt(rcpt, errors=DISCARD)
+    token_id = issued[0]["args"]["tokenId"] if issued else None
+    return {"tx": rcpt.transactionHash.hex(), "token_id": token_id,
+            "amount_tonnes": req["amount_tonnes"]}

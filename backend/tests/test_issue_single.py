@@ -70,3 +70,71 @@ def test_build_single_seen_duplicate_raises(offdir):
     from data.build_requests import build_single
     with pytest.raises(ValueError, match="重複發行"):
         build_single(_rec(), seen={("IMO9990101", "2029-01")})
+
+
+# ── service.issue_single 整合測試（需本地鏈 + make deploy） ──────
+
+needs_chain = pytest.mark.skipif(not _chain_ready(), reason="需要本地鏈 + make deploy（HANDOFF §7 步驟 1）")
+
+
+@pytest.fixture()
+def svc(tmp_path, monkeypatch):
+    """隔離：測試 DB + 鏈下目錄（build_requests 與 service 兩處）都導到 tmp。"""
+    from backend import config
+    monkeypatch.setattr(config, "DB_PATH", str(tmp_path / "test_ledger.db"))
+    from backend import ledger, service
+    import data.build_requests as br
+    d = str(tmp_path / "offchain")
+    monkeypatch.setattr(br, "OFFCHAIN_DIR", d)
+    monkeypatch.setattr(service, "OFFCHAIN_DIR", d)
+    ledger.init_db()
+    return service
+
+
+@needs_chain
+def test_issue_single_happy_then_verify(svc):
+    from backend import ledger
+    res = svc.issue_single("IMO9990201", "2029-02", 55.0, 100_000_000, "LNG")
+    assert res["token_id"] is not None
+    assert res["amount_tonnes"] > 0
+    assert res["tx"]
+    row = next(s for s in ledger.all_su(svc.client) if s["token_id"] == res["token_id"])
+    assert row["status"] == "held" and row["owner_role"] == "shipping"
+    v = svc.verify_su(res["token_id"])
+    assert v["match"] is True                     # 新 SU 的防竄改回驗完整可用
+
+
+@needs_chain
+def test_issue_single_duplicate_rejected(svc):
+    svc.issue_single("IMO9990202", "2029-03", 55.0, 100_000_000, "LNG")
+    with pytest.raises(ValueError, match="已發行過"):
+        svc.issue_single("IMO9990202", "2029-03", 55.0, 100_000_000, "LNG")
+
+
+@needs_chain
+def test_issue_single_deficit_rejected_no_orphan(svc, tmp_path):
+    with pytest.raises(ValueError, match="超額噸數"):
+        svc.issue_single("IMO9990203", "2029-04", 95.0, 100_000_000, "VLSFO")
+    assert not os.path.exists(os.path.join(str(tmp_path / "offchain"), "IMO9990203_2029-04.json"))
+
+
+@needs_chain
+def test_issue_single_bad_format_rejected(svc):
+    with pytest.raises(ValueError, match="ship_id"):
+        svc.issue_single("SHIP01", "2029-05", 55.0, 100_000_000, "LNG")
+    with pytest.raises(ValueError, match="reporting_period"):
+        svc.issue_single("IMO9990204", "202905", 55.0, 100_000_000, "LNG")
+
+
+@needs_chain
+def test_issue_single_mint_failure_cleans_offchain(svc, tmp_path, monkeypatch):
+    """鑄造失敗補償：剛寫的鏈下檔要被清掉，重試不被重複防呆誤擋。"""
+    from backend.chain_client import ChainTxError
+
+    def boom(*a, **k):
+        raise ChainTxError("simulated mint failure")
+
+    monkeypatch.setattr(svc.client, "mint", boom)
+    with pytest.raises(ChainTxError):
+        svc.issue_single("IMO9990205", "2029-06", 55.0, 100_000_000, "LNG")
+    assert not os.path.exists(os.path.join(str(tmp_path / "offchain"), "IMO9990205_2029-06.json"))
