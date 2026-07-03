@@ -14,4 +14,7 @@ def validate_issuance(rec: dict, seen: set) -> list[str]:
     # 收緊為 IMO+純數字：與後端 int(ship_id.replace("IMO","")) 的解析對齊
     if not re.fullmatch(r"IMO\d+", str(rec["ship_id"])):
         errors.append("ship_id 格式異常（應為 IMO+純數字）")
+    # period 會直接進鏈下檔名，收緊格式順帶杜絕 path traversal
+    if not re.fullmatch(r"\d{4}-\d{2}", str(rec["reporting_period"])):
+        errors.append("reporting_period 格式異常（應為 YYYY-MM）")
     return errors
