@@ -107,10 +107,26 @@ html,body{margin:0;background:#070b11;color:var(--ink-90);
 .su-card .price,.su-card .tonnes{font-size:22px;letter-spacing:-.02em;font-weight:600;}
 .su-card .su-sub{color:var(--ink-50);font-size:12px;margin-bottom:10px;}
 .su-card .meta-row{display:flex;justify-content:space-between;color:var(--ink-50);font-size:12px;margin:2px 0;}
-.su-card .su-act{display:flex;justify-content:flex-end;margin-top:10px;}
 .empty-note{color:var(--ink-40);font-size:13px;padding:22px;text-align:center;}
 .genesis{max-width:34rem;margin:8vh auto;text-align:center;padding:36px 30px;}
 @media(max-width:900px){.workbench{grid-template-columns:1fr;}.rail{position:static;}}
+
+/* ── SU 詳情 drawer ── */
+.drawer{position:fixed;inset:0;z-index:80;}
+.drawer__overlay{position:absolute;inset:0;background:rgba(4,8,13,.55);}
+.drawer__panel{position:absolute;top:0;right:0;bottom:0;width:min(420px,92vw);
+  padding:22px;overflow-y:auto;border-left:1px solid var(--hair);
+  background:rgba(10,15,22,.94);display:flex;flex-direction:column;gap:16px;
+  transform:translateX(16px);opacity:0;transition:transform .35s var(--ease),opacity .35s var(--ease);}
+.drawer.is-open .drawer__panel{transform:none;opacity:1;}
+.drawer__head{display:flex;align-items:center;justify-content:space-between;gap:10px;}
+#d-info .meta-row{display:flex;justify-content:space-between;align-items:center;
+  color:var(--ink-50);font-size:13px;padding:7px 0;border-bottom:1px solid var(--hair);}
+#d-info .meta-row > :last-child{color:var(--ink-90);}
+.d-actions{display:flex;gap:10px;flex-wrap:wrap;}
+.copy{background:none;border:none;color:var(--ink-90);cursor:pointer;font-size:12.5px;padding:0;}
+.copy:hover{color:var(--lg-accent);}
+@media(prefers-reduced-motion:reduce){.drawer__panel{transition:none;}}
 
 /* ── 稽核 ── */
 .audit{display:grid;grid-template-columns:2fr 1fr;gap:16px;align-items:start;}
@@ -231,6 +247,21 @@ html,body{margin:0;background:#070b11;color:var(--ink-90);
       </div>
     </section>
   </main>
+
+  <!-- SU 詳情 drawer -->
+  <div class="drawer" id="su-drawer" hidden>
+    <div class="drawer__overlay" id="drawer-overlay"></div>
+    <aside class="lg-static drawer__panel" role="dialog" aria-label="SU 詳情">
+      <div class="drawer__head">
+        <div class="eyebrow" style="margin:0"><span class="dot"></span><span class="lbl">SU 詳情</span><span class="tag mono" id="d-token">SU #-</span></div>
+        <button class="lg lg-btn lg-btn--sm" data-lg id="drawer-close">關閉</button>
+      </div>
+      <div id="d-info"></div>
+      <div class="d-actions" id="d-actions"></div>
+      <div class="eyebrow" style="margin:0"><span class="dot"></span><span class="lbl">事件 Timeline</span></div>
+      <ul class="feed" id="d-timeline" style="max-height:none"></ul>
+    </aside>
+  </div>
 
   <!-- modals（Task 3–6 追加於此） -->
   <div id="modals">
@@ -382,6 +413,7 @@ function renderAll(){
   if (typeof renderStats === "function") renderStats();
   if (typeof renderWorkbench === "function") renderWorkbench();
   if (typeof renderAudit === "function") renderAudit();
+  if (typeof renderDrawer === "function") renderDrawer();
   // 動態重繪出來的按鈕要補套離線 disable（setOnline 只處理當下存在的節點）
   document.querySelectorAll("[data-needs-backend]").forEach(b=>b.disabled = !S.online);
 }
@@ -512,12 +544,6 @@ function sortedSus(list){
 
 /* 卡片兩型：掛單中=折射（attach+revive）、其他=lg-static 磨砂（108 張全折射會拖垮效能） */
 const gridCards = new Map();   // token_id -> {el, variant}
-function actionBtn(u){         // Task 3 會把動作移入 drawer 後刪除本函式
-  if (u.status==="listed") return `<button class="lg lg-btn lg-btn--sm lg-btn--accent" data-lg data-token="${u.token_id}" data-lg-open="#m-buy" data-needs-backend>購買</button>`;
-  if (u.status==="held" && u.owner_role==="shipping") return `<button class="lg lg-btn lg-btn--sm" data-lg data-token="${u.token_id}" data-lg-open="#m-list" data-needs-backend>上架</button>`;
-  if (u.status==="held" && u.owner_role==="buyer") return `<button class="lg lg-btn lg-btn--sm lg-btn--accent" data-lg data-token="${u.token_id}" data-lg-open="#m-retire" data-needs-backend>除役</button>`;
-  return "";
-}
 function suCard(u){
   const listed = u.status === "listed";
   const el = document.createElement("div");
@@ -532,10 +558,8 @@ function suCard(u){
     ${listed ? `<div class="meta-row"><span>減碳量</span><span class="mono">${fmt(u.amount)} t</span></div>` : ""}
     <div class="meta-row"><span>持有者</span><span data-f="owner">${ROLE_TEXT[u.owner_role] ?? "-"}</span></div>
     ${u.status==="retired" ? `<div class="meta-row"><span>用途</span><span>${u.purpose_name ?? "-"}</span></div>` : ""}
-    <div class="meta-row"><span>dataHash</span><span class="mono">${shortHash(u.data_hash)}</span></div>
-    <div class="su-act">${actionBtn(u)}</div>`;
+    <div class="meta-row"><span>dataHash</span><span class="mono">${shortHash(u.data_hash)}</span></div>`;
   el.addEventListener("click", e=>{
-    if (e.target.closest("button")) return;                       // 動作鈕不觸發 drawer
     if (typeof openDrawer === "function") openDrawer(u.token_id); // Task 3 定義
   });
   return el;
@@ -594,6 +618,63 @@ function renderWorkbench(){
   });
   ensureEntered("page-workbench");
 }
+
+/* ── SU 詳情 drawer ── */
+let drawerToken = null;
+function openDrawer(id){
+  drawerToken = id;
+  const d = document.getElementById("su-drawer");
+  d.hidden = false;
+  requestAnimationFrame(()=>d.classList.add("is-open"));
+  renderDrawer();
+}
+function closeDrawer(){
+  drawerToken = null;
+  const d = document.getElementById("su-drawer");
+  d.classList.remove("is-open"); d.hidden = true;
+}
+function drawerActions(u){
+  if (u.status==="listed") return `<button class="lg lg-btn lg-btn--accent" data-lg data-token="${u.token_id}" data-lg-open="#m-buy" data-needs-backend>以買家身分購買</button>`;
+  if (u.status==="held" && u.owner_role==="shipping") return `
+    <button class="lg lg-btn" data-lg data-token="${u.token_id}" data-lg-open="#m-list" data-needs-backend>上架掛單</button>
+    <button class="lg lg-btn" data-lg data-token="${u.token_id}" data-lg-open="#m-retire" data-needs-backend>除役銷毀</button>`;
+  if (u.status==="held" && u.owner_role==="buyer") return `<button class="lg lg-btn lg-btn--accent" data-lg data-token="${u.token_id}" data-lg-open="#m-retire" data-needs-backend>除役銷毀</button>`;
+  return "";
+}
+function renderDrawer(){
+  if (drawerToken === null) return;
+  const u = S.sus.find(x=>x.token_id === drawerToken);
+  if (!u){ closeDrawer(); return; }
+  document.getElementById("d-token").textContent = "SU #" + u.token_id;
+  const p = S.prices[u.token_id];
+  document.getElementById("d-info").innerHTML = `
+    <div class="meta-row"><span>船舶</span><span class="mono">${imo(u.ship_id)}</span></div>
+    <div class="meta-row"><span>減碳量</span><span class="mono gold">${fmt(u.amount)} t</span></div>
+    <div class="meta-row"><span>持有者</span><span>${ROLE_TEXT[u.owner_role] ?? "-"}</span></div>
+    <div class="meta-row"><span>狀態</span><span class="pill ${u.status}">${STATUS_TEXT[u.status]}</span></div>
+    ${u.status==="listed" ? `<div class="meta-row"><span>掛單價</span><span class="mono gold">${p!==undefined ? fmt(p)+" mUSD" : "—"}</span></div>` : ""}
+    ${u.status==="retired" ? `<div class="meta-row"><span>用途</span><span>${u.purpose_name ?? "-"}</span></div>` : ""}
+    <div class="meta-row"><span>dataHash</span>
+      <button class="copy mono" data-hash="${u.data_hash ?? ""}" title="點擊複製完整 hash">${shortHash(u.data_hash)}</button></div>`;
+  document.getElementById("d-actions").innerHTML = drawerActions(u);
+  const evs = S.events.filter(e=>e.token_id === u.token_id);
+  document.getElementById("d-timeline").innerHTML = evs.length ? evs.map(e=>{
+    let d = {}; try{ d = JSON.parse(e.detail); }catch(_){}
+    const txt = (EVENT_TEXT[e.name] || (()=>e.detail))(d);
+    return `<li><span class="ts mono">${e.ts}</span><span class="nm">${e.name}</span><span class="dt">${txt}</span></li>`;
+  }).join("") : `<li style="border:none;color:var(--ink-40)">（尚無事件）</li>`;
+  document.querySelectorAll("#su-drawer [data-needs-backend]").forEach(b=>b.disabled = !S.online);
+}
+document.getElementById("drawer-close").addEventListener("click", closeDrawer);
+document.getElementById("drawer-overlay").addEventListener("click", closeDrawer);
+document.addEventListener("keydown", e=>{
+  if (e.key === "Escape" && drawerToken !== null && !document.querySelector(".lg-modal.is-open")) closeDrawer();
+});
+document.addEventListener("click", e=>{
+  const c = e.target.closest(".copy[data-hash]");
+  if (!c || !c.dataset.hash) return;
+  navigator.clipboard?.writeText(c.dataset.hash).then(()=>toastOk("已複製", "完整 dataHash 已複製到剪貼簿"));
+});
 
 /* 開 modal 時帶入 SU 摘要 */
 document.addEventListener("click", e=>{
