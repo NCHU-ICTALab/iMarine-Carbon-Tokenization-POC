@@ -4,6 +4,7 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>iMarine SU Exchange</title>
+<link rel="icon" href="data:," />
 <link rel="stylesheet" href="liquid-glass.css" />
 <style>
 /* ── tokens ── */
@@ -80,6 +81,7 @@ html,body{margin:0;background:#070b11;color:var(--ink-90);
 @media(prefers-reduced-motion:reduce){.shiny{animation:none;}}
 /* ── 儀表板格線 ── */
 .stats{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:20px;}
+#stat-band{margin-bottom:20px;}
 .duo{display:grid;grid-template-columns:2fr 1fr;gap:16px;align-items:stretch;}
 .gauges{display:flex;flex-direction:column;gap:16px;justify-content:space-between;}
 .lg-stat__value{letter-spacing:-.03em;}
@@ -136,47 +138,27 @@ html,body{margin:0;background:#070b11;color:var(--ink-90);
       <span class="lg-navbar__brand brand"><b>iMarine SU Exchange</b><span>TCX 海運合規專區 PoC</span></span>
       <div class="lg lg-tabs" data-lg role="tablist" id="nav-tabs">
         <span class="lg-tabs__pill"></span>
-        <button class="lg-tabs__tab is-active" role="tab" data-page="dashboard">儀表板</button>
-        <button class="lg-tabs__tab" role="tab" data-page="market">市場</button>
+        <button class="lg-tabs__tab is-active" role="tab" data-page="workbench">工作台</button>
         <button class="lg-tabs__tab" role="tab" data-page="audit">稽核</button>
       </div>
       <span class="lg-navbar__spacer"></span>
       <span class="lg-chip" id="health-chip"><span class="led"></span><span id="health-text">連線中…</span></span>
+      <button class="lg lg-btn lg-btn--sm lg-btn--primary" data-lg id="btn-issue-nav" data-lg-open="#m-issue" disabled>批次發行</button>
     </nav>
   </div>
 
   <main class="wrap">
-    <section class="page active" id="page-dashboard">
-      <div id="dash-hero" class="hero anim">
-        <h1>船隊超額減碳<br><span class="shiny">414,312 噸</span></h1>
-        <p class="sub">108 筆 iMarine 核發請求已完成 GFI 驗證，正待鑄造為可稽核的 Surplus Unit（ERC-721）。</p>
-        <button class="lg lg-btn lg-btn--pill lg-btn--lg lg-btn--primary" data-lg data-lg-open="#m-issue" data-needs-backend>批次發行上鏈</button>
-      </div>
-      <div id="dash-main" hidden>
-        <div class="eyebrow anim"><span class="dot"></span><span class="lbl">Overview</span><span class="tag" id="dash-tag">–</span></div>
-        <div class="stats">
-          <div class="lg lg-stat anim" data-lg><span class="lg-stat__label">累計發行 SU</span>
-            <div class="lg-stat__row"><span class="lg-stat__value" id="stat-issued" data-lg-value="0"></span></div></div>
-          <div class="lg lg-stat anim" data-lg><span class="lg-stat__label">總減碳噸數</span>
-            <div class="lg-stat__row"><span class="lg-stat__value gold" id="stat-tonnes" data-lg-value="0" data-lg-suffix=" t"></span></div></div>
-          <div class="lg lg-stat anim" data-lg><span class="lg-stat__label">已交易</span>
-            <div class="lg-stat__row"><span class="lg-stat__value" id="stat-traded" data-lg-value="0"></span></div></div>
-          <div class="lg lg-stat anim" data-lg><span class="lg-stat__label">已除役</span>
-            <div class="lg-stat__row"><span class="lg-stat__value" id="stat-retired" data-lg-value="0"></span></div></div>
-        </div>
-        <div class="duo">
-          <div class="lg lg-chart anim" data-lg>
-            <div class="lg-chart__head"><h4 class="lg-chart__title">船舶減碳排行（噸）</h4></div>
-            <svg class="lg-chart__svg" id="chart-ships" data-lg-chart="bar" data-lg-points="0" data-lg-labels="-"></svg>
-          </div>
-          <div class="gauges">
-            <div class="lg lg-gauge anim" data-lg data-lg-profile="circle" id="gauge-traded" data-lg-value="0" data-lg-unit="%" data-lg-label="交易率"></div>
-            <div class="lg lg-gauge anim" data-lg data-lg-profile="circle" id="gauge-retired" data-lg-value="0" data-lg-unit="%" data-lg-label="除役率"></div>
-          </div>
-        </div>
-      </div>
-    </section>
-    <section class="page" id="page-market">
+    <div class="stats" id="stat-band">
+      <div class="lg lg-stat" data-lg><span class="lg-stat__label">累計發行 SU</span>
+        <div class="lg-stat__row"><span class="lg-stat__value" id="stat-issued" data-lg-value="0"></span></div></div>
+      <div class="lg lg-stat" data-lg><span class="lg-stat__label">總減碳噸數</span>
+        <div class="lg-stat__row"><span class="lg-stat__value gold" id="stat-tonnes" data-lg-value="0" data-lg-suffix=" t"></span></div></div>
+      <div class="lg lg-stat" data-lg><span class="lg-stat__label">已交易</span>
+        <div class="lg-stat__row"><span class="lg-stat__value" id="stat-traded" data-lg-value="0"></span></div></div>
+      <div class="lg lg-stat" data-lg><span class="lg-stat__label">已除役</span>
+        <div class="lg-stat__row"><span class="lg-stat__value" id="stat-retired" data-lg-value="0"></span></div></div>
+    </div>
+    <section class="page active" id="page-workbench">
       <div class="market">
         <div>
           <div class="eyebrow anim"><span class="dot"></span><span class="lbl">掛單牆</span><span class="tag" id="wall-tag">0 筆掛單中</span></div>
@@ -196,6 +178,10 @@ html,body{margin:0;background:#070b11;color:var(--ink-90);
       </div>
     </section>
     <section class="page" id="page-audit">
+      <div class="lg lg-chart anim" data-lg style="margin-bottom:16px">
+        <div class="lg-chart__head"><h4 class="lg-chart__title">船舶減碳排行（噸）</h4></div>
+        <svg class="lg-chart__svg" id="chart-ships" data-lg-chart="bar" data-lg-points="0" data-lg-labels="-"></svg>
+      </div>
       <div class="audit">
         <div class="lg lg-card anim" data-lg>
           <div class="eyebrow"><span class="dot"></span><span class="lbl">SU 帳本全表</span><span class="tag" id="audit-tag">0 筆</span></div>
@@ -360,7 +346,7 @@ function setOnline(ok){
   document.querySelectorAll("[data-needs-backend]").forEach(b=>b.disabled = !ok);
 }
 function renderAll(){
-  if (typeof renderDashboard === "function") renderDashboard();
+  if (typeof renderStats === "function") renderStats();
   if (typeof renderMarket === "function") renderMarket();
   if (typeof renderAudit === "function") renderAudit();
   // 動態重繪出來的按鈕要補套離線 disable（setOnline 只處理當下存在的節點）
@@ -416,33 +402,18 @@ function switchPage(name){
 }
 document.querySelectorAll("#nav-tabs .lg-tabs__tab").forEach(t=>
   t.addEventListener("click",()=>switchPage(t.dataset.page)));
-switchPage("dashboard");
+switchPage("workbench");
 
-/* ── 儀表板 ── */
-function renderDashboard(){
-  const has = S.sus.length > 0;   // 防重複發行：發行後 hero（唯一發行入口）即消失（spec §10.6）
-  document.getElementById("dash-hero").hidden = has;
-  document.getElementById("dash-main").hidden = !has;
-  if (!has){ ensureEntered("page-dashboard"); return; }
-
+/* ── 常駐統計帶 + navbar 發行鈕 ── */
+function renderStats(){
+  const has = S.sus.length > 0;
   const tonnes = S.sus.reduce((s,u)=>s+u.amount,0);
-  const traded = S.sus.filter(u=>u.owner_role==="buyer").length;   // 含已除役（Sold 後 owner=買家）
-  const retired = S.sus.filter(u=>u.status==="retired").length;
   setVal("stat-issued", S.sus.length); setVal("stat-tonnes", tonnes);
-  setVal("stat-traded", traded); setVal("stat-retired", retired);
-  document.getElementById("dash-tag").textContent = fmt(S.sus.length)+" SU on-chain";
-  setVal("gauge-traded", Math.round(traded/S.sus.length*100));
-  setVal("gauge-retired", Math.round(retired/S.sus.length*100));
-
-  const byShip = {};
-  S.sus.forEach(u=>byShip[u.ship_id]=(byShip[u.ship_id]||0)+u.amount);
-  const top = Object.entries(byShip).sort((a,b)=>b[1]-a[1]).slice(0,12);
-  const chart = document.getElementById("chart-ships");
-  const pts = top.map(t=>t[1]).join(","), lbl = top.map(t=>"…"+String(t[0]).slice(-3)).join(",");
-  if (chart.getAttribute("data-lg-points") !== pts){
-    chart.setAttribute("data-lg-points", pts); chart.setAttribute("data-lg-labels", lbl);
-  }
-  ensureEntered("page-dashboard");
+  setVal("stat-traded", S.sus.filter(u=>u.owner_role==="buyer").length);   // 含已除役（Sold 後 owner=買家）
+  setVal("stat-retired", S.sus.filter(u=>u.status==="retired").length);
+  const b = document.getElementById("btn-issue-nav");
+  b.disabled = !S.online || has;                 // 防重複發行：發行後常駐 disabled（spec §3）
+  b.textContent = has ? "已發行" : "批次發行";
 }
 function setVal(id, v){
   const el = document.getElementById(id);
@@ -506,7 +477,7 @@ function renderMarket(){
   renderSide("held-buyer","held-buyer-tag",
     S.sus.filter(u=>u.status==="held" && u.owner_role==="buyer"),
     u=>`<button class="lg lg-btn lg-btn--sm lg-btn--accent" data-lg data-token="${u.token_id}" data-lg-open="#m-retire" data-needs-backend>除役</button>`);
-  ensureEntered("page-market");
+  ensureEntered("page-workbench");
 }
 function renderSide(listId, tagId, items, btnHtml){
   document.getElementById(tagId).textContent = items.length;
@@ -586,6 +557,14 @@ const EVENT_TEXT = {
   Retired: d => `除役用途 ${d.purpose}`,
 };
 function renderAudit(){
+  const byShip = {};
+  S.sus.forEach(u=>byShip[u.ship_id]=(byShip[u.ship_id]||0)+u.amount);
+  const top = Object.entries(byShip).sort((a,b)=>b[1]-a[1]).slice(0,12);
+  const chart = document.getElementById("chart-ships");
+  const pts = top.map(t=>t[1]).join(","), lbl = top.map(t=>"…"+String(t[0]).slice(-3)).join(",");
+  if (chart.getAttribute("data-lg-points") !== pts){
+    chart.setAttribute("data-lg-points", pts); chart.setAttribute("data-lg-labels", lbl);
+  }
   document.getElementById("audit-tag").textContent = fmt(S.sus.length)+" 筆";
   document.getElementById("su-tbody").innerHTML = S.sus.map(u=>`
     <tr>
