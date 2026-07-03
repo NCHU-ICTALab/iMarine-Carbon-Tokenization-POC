@@ -16,6 +16,48 @@ def canonical(obj: dict) -> str:
     return json.dumps(obj, sort_keys=True, separators=(",", ":"), ensure_ascii=True)
 
 
+def build_single(record: dict, seen: set | None = None) -> dict:
+    """單筆核發請求：算超額 → 組鏈下明細 → keccak → 驗證 → 寫鏈下檔 → 回傳標準鑄造請求。
+
+    record 欄位同 fleet.csv 一列：ship_id / reporting_period / attained_gfi / energy_mj / fuel。
+    缺額（噸數 <= 0）或驗證不過 raise ValueError（訊息即錯誤原因）；驗證全過才寫鏈下檔。
+    """
+    tonnes = surplus_tonnes(record["attained_gfi"], TARGET_GFI, record["energy_mj"])
+
+    offchain = {
+        "ship_id": record["ship_id"],
+        "reporting_period": record["reporting_period"],
+        "calculation_basis": {
+            "attained_gfi": record["attained_gfi"],
+            "target_gfi": TARGET_GFI,
+            "energy_mj": int(record["energy_mj"]),
+            "fuel": record["fuel"],
+        },
+        "verification_body": "CR",
+    }
+    canon = canonical(offchain)
+    data_hash = Web3.keccak(text=canon).hex()
+
+    fname = f"{record['ship_id']}_{record['reporting_period']}.json"
+    req = {
+        "ship_id": record["ship_id"],
+        "reporting_period": record["reporting_period"],
+        "amount_tonnes": int(round(tonnes)),
+        "uri": f"local://offchain/{fname}",
+        "data_hash": data_hash,
+        "calculation_basis": offchain["calculation_basis"],
+        "to_role": "shipping",
+    }
+    errs = validate_issuance(req, seen if seen is not None else set())
+    if errs:
+        raise ValueError("；".join(errs))
+    # 驗證通過才寫鏈下明細檔，避免留孤兒檔（正式版改放 IPFS，見 v2 規劃 5.2）
+    os.makedirs(OFFCHAIN_DIR, exist_ok=True)
+    with open(os.path.join(OFFCHAIN_DIR, fname), "w", encoding="utf-8") as f:
+        f.write(canon)
+    return req
+
+
 def build(csv_path: str, out_path: str):
     os.makedirs(OFFCHAIN_DIR, exist_ok=True)
     records = CsvSource(csv_path).fetch()
@@ -25,45 +67,24 @@ def build(csv_path: str, out_path: str):
 
     requests, seen, skipped = [], set(), 0
     for _, row in df.iterrows():
-        tonnes = surplus_tonnes(row["attained_gfi"], TARGET_GFI, row["energy_mj"])
-        if tonnes <= 0:
+        # 缺額或剛好達標：靜默跳過（維持原輸出——缺額不逐筆印，只有驗證錯誤才印）
+        if surplus_tonnes(row["attained_gfi"], TARGET_GFI, row["energy_mj"]) <= 0:
             skipped += 1
-            continue  # 缺額或剛好達標的船，不發 SU
-
-        # 鏈下完整明細（可回溯怎麼算出來的）
-        offchain = {
+            continue
+        rec = {
             "ship_id": row["ship_id"],
             "reporting_period": row["reporting_period"],
-            "calculation_basis": {
-                "attained_gfi": row["attained_gfi"],
-                "target_gfi": TARGET_GFI,
-                "energy_mj": int(row["energy_mj"]),
-                "fuel": row["fuel"],
-            },
-            "verification_body": "CR",
+            "attained_gfi": row["attained_gfi"],
+            "energy_mj": int(row["energy_mj"]),
+            "fuel": row["fuel"],
         }
-        canon = canonical(offchain)
-        data_hash = Web3.keccak(text=canon).hex()  # 0x… 32 bytes
-
-        fname = f"{row['ship_id']}_{row['reporting_period']}.json"
-        req = {
-            "ship_id": row["ship_id"],
-            "reporting_period": row["reporting_period"],
-            "amount_tonnes": int(round(tonnes)),
-            "uri": f"local://offchain/{fname}",
-            "data_hash": data_hash,
-            "calculation_basis": offchain["calculation_basis"],
-            "to_role": "shipping",  # 發給哪個角色（demo 都給航商 A）
-        }
-        errs = validate_issuance(req, seen)
-        if errs:
-            print(f"  ✗ 跳過 {req['ship_id']} {req['reporting_period']}：{errs}")
+        try:
+            req = build_single(rec, seen)
+        except ValueError as e:
+            print(f"  ✗ 跳過 {rec['ship_id']} {rec['reporting_period']}：{e}")
             skipped += 1
             continue
         seen.add((req["ship_id"], req["reporting_period"]))
-        # 驗證通過才寫鏈下明細檔，避免留孤兒檔（正式版改放 IPFS，見 v2 規劃 5.2）
-        with open(os.path.join(OFFCHAIN_DIR, fname), "w", encoding="utf-8") as f:
-            f.write(canon)
         requests.append(req)
 
     os.makedirs(os.path.dirname(out_path), exist_ok=True)

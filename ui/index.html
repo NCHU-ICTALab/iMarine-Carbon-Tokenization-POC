@@ -93,10 +93,11 @@ html,body{margin:0;background:#070b11;color:var(--ink-90);
 .fchip:hover{color:var(--ink-90);border-color:rgba(255,255,255,.25);}
 .fchip.is-on{color:var(--lg-accent);border-color:var(--lg-accent);}
 .fchip .n{margin-left:auto;font-size:11px;color:var(--ink-40);}
-.rail select,.wb-toolbar select{background:rgba(255,255,255,.06);border:1px solid var(--hair);border-radius:10px;
+.rail select,.wb-toolbar select,.lg-modal__panel select{background:rgba(255,255,255,.06);border:1px solid var(--hair);border-radius:10px;
   color:var(--ink-90);padding:8px 10px;font-size:13px;font-family:inherit;}
-.rail select:focus,.wb-toolbar select:focus{outline:1px solid var(--lg-accent);}
-.rail select option{background:#0a0f16;}
+.rail select:focus,.wb-toolbar select:focus,.lg-modal__panel select:focus{outline:1px solid var(--lg-accent);}
+.lg-modal__panel select{width:100%;}
+.rail select option,.lg-modal__panel select option{background:#0a0f16;}
 #f-count{margin:0;font-size:12px;color:var(--ink-50);}
 .wb-toolbar{display:flex;align-items:center;gap:10px;margin:0 0 14px;}
 .su-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:14px;}
@@ -218,6 +219,7 @@ html,body{margin:0;background:#070b11;color:var(--ink-90);
               <option value="tonnes">排序：噸數</option>
               <option value="price">排序：價格（掛單優先）</option>
             </select>
+            <button class="lg lg-btn lg-btn--sm" data-lg data-lg-open="#m-issue-one" data-needs-backend>單筆發行</button>
           </div>
           <div class="su-grid" id="su-grid"></div>
           <div class="empty-note" id="wb-empty" hidden>無符合篩選的 SU——調整左側條件或清除篩選。</div>
@@ -285,6 +287,41 @@ html,body{margin:0;background:#070b11;color:var(--ink-90);
         <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:18px">
           <button class="lg lg-btn" data-lg data-lg-close>取消</button>
           <button class="lg lg-btn lg-btn--primary" data-lg id="btn-issue-go">確認發行</button>
+        </div>
+      </div>
+    </div>
+    <div class="lg-modal" id="m-issue-one">
+      <div class="lg-modal__overlay" data-lg-close></div>
+      <div class="lg-modal__panel lg" data-lg role="dialog" aria-label="單筆發行">
+        <div class="eyebrow"><span class="dot"></span><span class="lbl">單筆發行</span><span class="tag">現場驗證數據</span></div>
+        <div style="display:flex;flex-direction:column;gap:12px;margin-top:6px">
+          <div class="lg-field"><div class="lg lg-field__box" data-lg>
+            <input id="one-ship" class="lg-field__input" type="text" placeholder=" ">
+            <label for="one-ship" class="lg-field__label">船舶</label>
+          </div><span class="lg-field__hint">IMO+純數字，例：IMO9000031</span></div>
+          <div class="lg-field"><div class="lg lg-field__box" data-lg>
+            <input id="one-period" class="lg-field__input" type="text" placeholder=" ">
+            <label for="one-period" class="lg-field__label">申報期</label>
+          </div><span class="lg-field__hint">YYYY-MM，例：2029-01；同船同期只能發一次</span></div>
+          <div class="lg-field"><div class="lg lg-field__box" data-lg>
+            <input id="one-gfi" class="lg-field__input" type="number" step="0.01" min="0" placeholder=" ">
+            <label for="one-gfi" class="lg-field__label">實際 GFI</label>
+          </div><span class="lg-field__hint">目標值 89.0；低於目標才有超額可發</span></div>
+          <div class="lg-field"><div class="lg lg-field__box" data-lg>
+            <input id="one-mj" class="lg-field__input" type="number" step="1" min="1" placeholder=" ">
+            <label for="one-mj" class="lg-field__label">能耗（MJ）</label>
+          </div><span class="lg-field__hint">正整數，例：100000000</span></div>
+          <div class="lg-field">
+            <select id="one-fuel">
+              <option>LNG</option><option>Bio-methanol</option><option>Ammonia</option>
+              <option>VLSFO</option><option>MGO</option>
+            </select>
+            <span class="lg-field__hint">燃料類型</span>
+          </div>
+        </div>
+        <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:18px">
+          <button class="lg lg-btn" data-lg data-lg-close>取消</button>
+          <button class="lg lg-btn lg-btn--primary" data-lg id="btn-issue-one-go">確認發行</button>
         </div>
       </div>
     </div>
@@ -492,6 +529,29 @@ document.getElementById("btn-issue-go").addEventListener("click", async e=>{
     const r = await api("/pipeline", {});
     toastOk("批次發行完成", `已鑄造 ${fmt(r.issued)} 筆 / ${fmt(r.total_tonnes)} 噸`);
     document.querySelector("#m-issue [data-lg-close]").click();
+    await refresh();
+  }catch(_){}
+  setBusy(e.target, false);
+});
+
+/* ── 單筆發行 ── */
+document.getElementById("btn-issue-one-go").addEventListener("click", async e=>{
+  if (S.busy) return;
+  const ship = document.getElementById("one-ship").value.trim();
+  const period = document.getElementById("one-period").value.trim();
+  const gfi = parseFloat(document.getElementById("one-gfi").value);
+  const mj = parseInt(document.getElementById("one-mj").value, 10);
+  const fuel = document.getElementById("one-fuel").value;
+  if (!/^IMO\d+$/.test(ship)){ toastErr(new Error("船舶格式應為 IMO+純數字")); return; }
+  if (!/^\d{4}-\d{2}$/.test(period)){ toastErr(new Error("申報期格式應為 YYYY-MM")); return; }
+  if (!(gfi > 0)){ toastErr(new Error("實際 GFI 需為正數")); return; }
+  if (!Number.isInteger(mj) || mj <= 0){ toastErr(new Error("能耗需為正整數 MJ")); return; }
+  setBusy(e.target, true);
+  try{
+    const r = await api("/issue", {ship_id: ship, reporting_period: period,
+                                   attained_gfi: gfi, energy_mj: mj, fuel});
+    toastOk("已發行", `SU #${r.token_id} · ${ship} ${period} · ${fmt(r.amount_tonnes)} t`);
+    document.querySelector("#m-issue-one [data-lg-close]").click();
     await refresh();
   }catch(_){}
   setBusy(e.target, false);
