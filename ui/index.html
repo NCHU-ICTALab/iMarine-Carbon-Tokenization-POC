@@ -1,0 +1,636 @@
+<!DOCTYPE html>
+<html lang="zh-Hant" data-lg-theme="dark">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>iMarine SU Exchange</title>
+<link rel="stylesheet" href="liquid-glass.css" />
+<style>
+/* ── tokens ── */
+:root{
+  --lg-accent:#35E0A6;
+  --gold:#E9BC63;
+  --ink-90:rgba(255,255,255,.9); --ink-60:rgba(255,255,255,.6);
+  --ink-50:rgba(255,255,255,.5); --ink-40:rgba(255,255,255,.4);
+  --hair:rgba(255,255,255,.1);
+  --ease:cubic-bezier(.22,1,.36,1);
+}
+html,body{margin:0;background:#070b11;color:var(--ink-90);
+  font-family:"Inter","Noto Sans TC",system-ui,sans-serif;-webkit-font-smoothing:antialiased;}
+.mono{font-family:"Geist Mono",ui-monospace,SFMono-Regular,monospace;}
+.gold{color:var(--gold);}
+
+/* ── 舞台：影片 + vignette + 髮絲導線 ── */
+.bg-fix{position:fixed;inset:0;z-index:0;pointer-events:none;}
+.bg-fix video{width:100%;height:100%;object-fit:cover;}
+.bg-vignette{position:absolute;inset:0;
+  background:linear-gradient(180deg,rgba(5,10,16,.82),rgba(5,10,16,.5) 42%,rgba(5,10,16,.78));}
+.guide{position:fixed;top:0;bottom:0;width:1px;background:var(--hair);z-index:5;pointer-events:none;}
+.guide-l{left:calc(50% - 36rem);} .guide-r{left:calc(50% + 36rem);}
+@media(max-width:1200px){.guide{display:none;}}
+
+/* ── 版心與導覽 ── */
+.topbar{position:fixed;top:16px;left:50%;transform:translateX(-50%);z-index:50;
+  width:min(70rem,calc(100% - 32px));}
+.topbar .lg-navbar{width:100%;}
+.brand{display:flex;flex-direction:column;line-height:1.15;}
+.brand b{font-size:15px;letter-spacing:-.01em;}
+.brand span{font-size:11px;color:var(--ink-40);}
+.wrap{position:relative;z-index:10;max-width:72rem;margin:0 auto;padding:104px 24px 56px;}
+
+/* ── 分頁與 stagger 進場 ── */
+[hidden]{display:none!important;}
+.page{display:none;}
+.page.active{display:block;}
+.anim{opacity:0;transform:translateY(14px);}
+.page.active.entered .anim{opacity:1;transform:none;
+  transition:opacity .7s var(--ease),transform .7s var(--ease);transition-delay:var(--d,0s);}
+@media(prefers-reduced-motion:reduce){.anim{opacity:1;transform:none;transition:none;}}
+
+/* ── eyebrow 區塊標頭（統一語法）── */
+.eyebrow{display:flex;align-items:center;gap:8px;margin:0 0 14px;}
+.eyebrow .dot{width:6px;height:6px;border-radius:50%;background:#fff;}
+.eyebrow .lbl{font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-60);}
+.eyebrow .tag{font-size:11px;padding:2px 8px;border-radius:999px;border:1px solid var(--hair);color:var(--ink-50);}
+
+/* ── 髮絲線表格/列表 ── */
+.hairline{width:100%;border-collapse:collapse;font-size:13px;}
+.hairline th{color:var(--ink-40);font-weight:500;text-align:left;padding:8px;border-bottom:1px solid var(--hair);}
+.hairline td{padding:8px;border-bottom:1px solid var(--hair);color:var(--ink-90);}
+.pill{font-size:11px;padding:2px 10px;border-radius:999px;border:1px solid var(--hair);color:var(--ink-60);}
+.pill.listed{color:var(--lg-accent);border-color:var(--lg-accent);}
+.pill.retired{color:var(--ink-40);}
+/* 白色主 CTA */
+.lg-btn--primary{background:rgba(255,255,255,.92);color:#0a0f16;font-weight:600;}
+.lg-btn--primary:hover{background:#fff;}
+.lg-btn[disabled]{opacity:.45;pointer-events:none;}
+/* 健康 chip */
+#health-chip{display:inline-flex;align-items:center;gap:6px;}
+#health-chip .led{width:7px;height:7px;border-radius:50%;background:#e05a5a;}
+#health-chip.ok .led{background:var(--lg-accent);}
+
+/* ── hero（空狀態）── */
+.hero{min-height:56vh;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;}
+.hero h1{margin:0;font-size:clamp(44px,7vw,88px);font-weight:700;letter-spacing:-.04em;line-height:.95;}
+.hero .sub{margin:26px 0 34px;max-width:34rem;color:var(--ink-60);font-size:16px;line-height:1.6;}
+.shiny{background:linear-gradient(90deg,#7a5c1c 0%,#E9BC63 28%,#fff3d0 50%,#E9BC63 72%,#7a5c1c 100%);
+  background-size:200% auto;-webkit-background-clip:text;background-clip:text;color:transparent;
+  animation:shiny 6s linear infinite;filter:url(#ime-noise);}
+@keyframes shiny{0%{background-position:200% center}100%{background-position:-200% center}}
+@media(prefers-reduced-motion:reduce){.shiny{animation:none;}}
+/* ── 儀表板格線 ── */
+.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:20px;}
+.duo{display:grid;grid-template-columns:2fr 1fr;gap:16px;align-items:stretch;}
+.gauges{display:flex;flex-direction:column;gap:16px;justify-content:space-between;}
+.lg-stat__value{letter-spacing:-.03em;}
+@media(max-width:900px){.stats{grid-template-columns:repeat(2,1fr);}.duo{grid-template-columns:1fr;}}
+
+/* ── 市場 ── */
+.market{display:grid;grid-template-columns:2fr 1fr;gap:16px;align-items:start;}
+.wall{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:14px;}
+.su-card .lg-card__title{display:flex;justify-content:space-between;align-items:baseline;}
+.su-card .price{font-size:20px;letter-spacing:-.02em;}
+.su-card .meta-row{display:flex;justify-content:space-between;color:var(--ink-50);font-size:12px;margin:2px 0;}
+.side-list{list-style:none;margin:0;padding:0;}
+.side-list li{display:flex;align-items:center;justify-content:space-between;gap:8px;
+  padding:9px 4px;border-bottom:1px solid var(--hair);font-size:13px;}
+.empty-note{color:var(--ink-40);font-size:13px;padding:22px;text-align:center;}
+@media(max-width:900px){.market{grid-template-columns:1fr;}}
+
+/* ── 稽核 ── */
+.audit{display:grid;grid-template-columns:2fr 1fr;gap:16px;align-items:start;}
+.scrolly{max-height:64vh;overflow-y:auto;}
+.feed{list-style:none;margin:0;padding:0;font-size:12.5px;max-height:64vh;overflow-y:auto;}
+.feed li{padding:8px 4px;border-bottom:1px solid var(--hair);}
+.feed .nm{color:var(--ink-90);font-weight:600;margin-right:6px;}
+.feed .ts{color:var(--ink-40);float:right;}
+.feed .dt{color:var(--ink-50);display:block;margin-top:2px;}
+.hashes{display:flex;flex-direction:column;gap:10px;margin:14px 0;}
+.hashes .row b{display:block;font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--ink-40);margin-bottom:4px;}
+.hashes .val{font-size:12.5px;word-break:break-all;}
+.verdict{padding:10px 14px;border-radius:12px;font-size:14px;font-weight:600;}
+.verdict.ok{color:var(--lg-accent);border:1px solid var(--lg-accent);}
+.verdict.bad{color:#ff7a7a;border:1px solid #ff7a7a;}
+.hash-ok{color:var(--lg-accent);} .hash-bad{color:#ff7a7a;}
+@media(max-width:900px){.audit{grid-template-columns:1fr;}}
+</style>
+</head>
+<body>
+  <!-- 舞台 -->
+  <div class="bg-fix"><video autoplay loop muted playsinline src="assets/wave.mp4"></video><div class="bg-vignette"></div></div>
+  <div class="guide guide-l"></div><div class="guide guide-r"></div>
+
+  <!-- noise filter（shiny 文字用，Task 3） -->
+  <svg width="0" height="0" style="position:absolute" aria-hidden="true">
+    <filter id="ime-noise">
+      <feTurbulence type="fractalNoise" baseFrequency="0.85" numOctaves="2" stitchTiles="stitch"/>
+      <feColorMatrix type="matrix" values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 0.3 0"/>
+      <feComposite in2="SourceGraphic" operator="in" result="noise"/>
+      <feBlend in="SourceGraphic" in2="noise" mode="multiply"/>
+    </filter>
+  </svg>
+
+  <!-- 導覽列 -->
+  <div class="topbar">
+    <nav class="lg lg-navbar" data-lg>
+      <span class="lg-navbar__brand brand"><b>iMarine SU Exchange</b><span>TCX 海運合規專區 PoC</span></span>
+      <div class="lg lg-tabs" data-lg role="tablist" id="nav-tabs">
+        <span class="lg-tabs__pill"></span>
+        <button class="lg-tabs__tab is-active" role="tab" data-page="dashboard">儀表板</button>
+        <button class="lg-tabs__tab" role="tab" data-page="market">市場</button>
+        <button class="lg-tabs__tab" role="tab" data-page="audit">稽核</button>
+      </div>
+      <span class="lg-navbar__spacer"></span>
+      <span class="lg-chip" id="health-chip"><span class="led"></span><span id="health-text">連線中…</span></span>
+    </nav>
+  </div>
+
+  <main class="wrap">
+    <section class="page active" id="page-dashboard">
+      <div id="dash-hero" class="hero anim">
+        <h1>船隊超額減碳<br><span class="shiny">414,312 噸</span></h1>
+        <p class="sub">108 筆 iMarine 核發請求已完成 GFI 驗證，正待鑄造為可稽核的 Surplus Unit（ERC-721）。</p>
+        <button class="lg lg-btn lg-btn--pill lg-btn--lg lg-btn--primary" data-lg data-lg-open="#m-issue" data-needs-backend>批次發行上鏈</button>
+      </div>
+      <div id="dash-main" hidden>
+        <div class="eyebrow anim"><span class="dot"></span><span class="lbl">Overview</span><span class="tag" id="dash-tag">–</span></div>
+        <div class="stats">
+          <div class="lg lg-stat anim" data-lg><span class="lg-stat__label">累計發行 SU</span>
+            <div class="lg-stat__row"><span class="lg-stat__value" id="stat-issued" data-lg-value="0"></span></div></div>
+          <div class="lg lg-stat anim" data-lg><span class="lg-stat__label">總減碳噸數</span>
+            <div class="lg-stat__row"><span class="lg-stat__value gold" id="stat-tonnes" data-lg-value="0" data-lg-suffix=" t"></span></div></div>
+          <div class="lg lg-stat anim" data-lg><span class="lg-stat__label">已交易</span>
+            <div class="lg-stat__row"><span class="lg-stat__value" id="stat-traded" data-lg-value="0"></span></div></div>
+          <div class="lg lg-stat anim" data-lg><span class="lg-stat__label">已除役</span>
+            <div class="lg-stat__row"><span class="lg-stat__value" id="stat-retired" data-lg-value="0"></span></div></div>
+        </div>
+        <div class="duo">
+          <div class="lg lg-chart anim" data-lg>
+            <div class="lg-chart__head"><h4 class="lg-chart__title">船舶減碳排行（噸）</h4></div>
+            <svg class="lg-chart__svg" id="chart-ships" data-lg-chart="bar" data-lg-points="0" data-lg-labels="-"></svg>
+          </div>
+          <div class="gauges">
+            <div class="lg lg-gauge anim" data-lg data-lg-profile="circle" id="gauge-traded" data-lg-value="0" data-lg-unit="%" data-lg-label="交易率"></div>
+            <div class="lg lg-gauge anim" data-lg data-lg-profile="circle" id="gauge-retired" data-lg-value="0" data-lg-unit="%" data-lg-label="除役率"></div>
+          </div>
+        </div>
+      </div>
+    </section>
+    <section class="page" id="page-market">
+      <div class="market">
+        <div>
+          <div class="eyebrow anim"><span class="dot"></span><span class="lbl">掛單牆</span><span class="tag" id="wall-tag">0 筆掛單中</span></div>
+          <div class="wall" id="listing-wall"></div>
+          <div class="empty-note" id="wall-empty">尚無掛單——從右側「航商持有」上架第一張 SU。</div>
+        </div>
+        <div>
+          <div class="lg lg-card anim" data-lg style="margin-bottom:14px">
+            <div class="eyebrow"><span class="dot"></span><span class="lbl">航商持有</span><span class="tag" id="held-ship-tag">0</span></div>
+            <ul class="side-list" id="held-shipping"></ul>
+          </div>
+          <div class="lg lg-card anim" data-lg>
+            <div class="eyebrow"><span class="dot"></span><span class="lbl">買家持有</span><span class="tag" id="held-buyer-tag">0</span></div>
+            <ul class="side-list" id="held-buyer"></ul>
+          </div>
+        </div>
+      </div>
+    </section>
+    <section class="page" id="page-audit">
+      <div class="audit">
+        <div class="lg lg-card anim" data-lg>
+          <div class="eyebrow"><span class="dot"></span><span class="lbl">SU 帳本全表</span><span class="tag" id="audit-tag">0 筆</span></div>
+          <div class="scrolly" data-lg-scroll-edge="both">
+            <table class="hairline"><thead><tr>
+              <th>#</th><th>船舶</th><th>噸</th><th>持有者</th><th>狀態</th><th>用途</th><th></th>
+            </tr></thead><tbody id="su-tbody"></tbody></table>
+          </div>
+        </div>
+        <div class="lg lg-card anim" data-lg>
+          <div class="eyebrow"><span class="dot"></span><span class="lbl">事件流</span><span class="tag">on-chain events</span></div>
+          <ul class="feed" id="event-feed" data-lg-scroll-edge="both"></ul>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- modals（Task 3–6 追加於此） -->
+  <div id="modals">
+    <div class="lg-modal" id="m-issue">
+      <div class="lg-modal__overlay" data-lg-close></div>
+      <div class="lg-modal__panel lg" data-lg role="dialog" aria-label="批次發行">
+        <div class="eyebrow"><span class="dot"></span><span class="lbl">批次發行</span></div>
+        <p style="color:var(--ink-60);font-size:14px;line-height:1.7">
+          將 <b class="mono">data/out/minting_requests.json</b> 的 <b>108 筆 / <span class="gold">414,312 噸</span></b>
+          核發請求鑄造為 SU（ERC-721），持有者為航商。每筆皆含 dataHash 防竄改指紋。</p>
+        <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:18px">
+          <button class="lg lg-btn" data-lg data-lg-close>取消</button>
+          <button class="lg lg-btn lg-btn--primary" data-lg id="btn-issue-go">確認發行</button>
+        </div>
+      </div>
+    </div>
+    <div class="lg-modal" id="m-list">
+      <div class="lg-modal__overlay" data-lg-close></div>
+      <div class="lg-modal__panel lg" data-lg role="dialog" aria-label="上架 SU">
+        <div class="eyebrow"><span class="dot"></span><span class="lbl">上架掛單</span><span class="tag">以航商身分</span></div>
+        <p class="mono" id="list-summary" style="color:var(--ink-60);font-size:13px"></p>
+        <div class="lg-field"><div class="lg lg-field__box" data-lg>
+          <input id="list-price" class="lg-field__input" type="number" min="1" step="1" value="300" placeholder=" ">
+          <label for="list-price" class="lg-field__label">售價（mUSD）</label>
+        </div><span class="lg-field__hint">整數 mUSD；上架前後端會自動 approve</span></div>
+        <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:18px">
+          <button class="lg lg-btn" data-lg data-lg-close>取消</button>
+          <button class="lg lg-btn lg-btn--primary" data-lg id="btn-list-go">確認上架</button>
+        </div>
+      </div>
+    </div>
+    <div class="lg-modal" id="m-buy">
+      <div class="lg-modal__overlay" data-lg-close></div>
+      <div class="lg-modal__panel lg" data-lg role="dialog" aria-label="購買 SU">
+        <div class="eyebrow"><span class="dot"></span><span class="lbl">購買確認</span><span class="tag">以買家身分</span></div>
+        <p class="mono" id="buy-summary" style="color:var(--ink-60);font-size:13px"></p>
+        <p style="font-size:13px;color:var(--ink-50)">將以 mUSD 原子交割（付款 + safeTransferFrom）。此轉讓為該 SU 唯一一次合法轉讓（transfer-once）。</p>
+        <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:18px">
+          <button class="lg lg-btn" data-lg data-lg-close>取消</button>
+          <button class="lg lg-btn lg-btn--primary" data-lg id="btn-buy-go">確認購買</button>
+        </div>
+      </div>
+    </div>
+    <div class="lg-modal" id="m-retire">
+      <div class="lg-modal__overlay" data-lg-close></div>
+      <div class="lg-modal__panel lg" data-lg role="dialog" aria-label="除役 SU">
+        <div class="eyebrow"><span class="dot"></span><span class="lbl">除役銷毀</span><span class="tag">Retire</span></div>
+        <p class="mono" id="retire-summary" style="color:var(--ink-60);font-size:13px"></p>
+        <div class="lg-radio-group" role="radiogroup" style="display:flex;flex-direction:column;gap:8px;margin:14px 0">
+          <label class="lg-radio"><input type="radio" name="purpose" value="0"><span class="lg-radio__box"></span><span class="lg-radio__label">NZF_REWARD — 淨零基金獎勵</span></label>
+          <label class="lg-radio"><input type="radio" name="purpose" value="1"><span class="lg-radio__box"></span><span class="lg-radio__label">EU_ETS_OFFSET — 歐盟碳交易抵換</span></label>
+          <label class="lg-radio"><input type="radio" name="purpose" value="2"><span class="lg-radio__box"></span><span class="lg-radio__label">PORT_FEE_REBATE — 港埠費率回饋</span></label>
+          <label class="lg-radio"><input type="radio" name="purpose" value="3" checked><span class="lg-radio__box"></span><span class="lg-radio__label">SCOPE3_OFFSET — Scope 3 抵換</span></label>
+        </div>
+        <p style="font-size:12px;color:var(--ink-40)">除役即在鏈上 burn，永久銷毀且不可逆；Retired 事件將留存為稽核紀錄。</p>
+        <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:14px">
+          <button class="lg lg-btn" data-lg data-lg-close>取消</button>
+          <button class="lg lg-btn lg-btn--primary" data-lg id="btn-retire-go">確認除役</button>
+        </div>
+      </div>
+    </div>
+    <div class="lg-modal" id="m-verify">
+      <div class="lg-modal__overlay" data-lg-close></div>
+      <div class="lg-modal__panel lg" data-lg role="dialog" aria-label="防竄改驗證" style="max-width:34rem">
+        <div class="eyebrow"><span class="dot"></span><span class="lbl">防竄改驗證</span><span class="tag mono" id="verify-token">SU #-</span></div>
+        <div id="verify-body"><p style="color:var(--ink-50)">驗證中——讀取鏈上 dataHash 並對鏈下明細重算 keccak…</p></div>
+        <div style="display:flex;justify-content:flex-end;margin-top:14px">
+          <button class="lg lg-btn" data-lg data-lg-close>關閉</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+<script src="liquid-glass.js"></script>
+<script>
+LiquidGlass.init();
+
+/* ── state 與工具 ── */
+const API = "http://127.0.0.1:8000";
+const S = {sus:[], events:[], roles:{}, prices:{}, online:false, busy:false, ctxToken:null};
+const fmt = n => Number(n).toLocaleString("en-US");
+const imo = id => "IMO" + id;
+const shortHash = h => h ? h.slice(0,10) + "…" + h.slice(-6) : "-";
+function toastOk(title, message){ LiquidGlass.toast({title, message, duration:3500}); }
+function toastErr(e){ LiquidGlass.toast({title:"操作失敗", message:String(e.message||e), duration:6000}); }
+
+// 後端把鏈上 revert 的原始 web3 錯誤（含 {'code':-32603,...}）原樣塞進 400 的 error 欄；
+// 這裡萃取人類可讀的 reason（如 Market: not for sale / transfer once only），供 toast 顯示。
+function cleanReason(msg){
+  const s = String(msg);
+  const m = s.match(/reason string ['"]([^'"]+)['"]/) || s.match(/custom error ['"]([^'"]+)['"]/);
+  if (m) return m[1];
+  if (!/['"]?code['"]?\s*:/.test(s)) return s;   // 後端自組的乾淨訊息（中文等）→ 原樣
+  return "鏈上交易被拒（revert）";                 // 原始 dict 但抓不到 reason → 通用訊息
+}
+
+async function api(path, body){
+  const isPost = body !== undefined;
+  const opts = isPost
+    ? {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify(body)}
+    : {};
+  const res = await fetch(API + path, opts);
+  if (!res.ok){
+    let msg = "HTTP " + res.status;
+    try { msg = cleanReason((await res.json()).error || msg); } catch(_){}
+    const err = new Error(msg);
+    if (isPost) toastErr(err);   // GET 失敗不 toast（輪詢/verify 各自處理，避免 4 秒一則的洗版）
+    throw err;
+  }
+  return res.json();
+}
+
+function setBusy(btn, on){
+  S.busy = on;
+  if (btn){ btn.disabled = on; btn.dataset.label ??= btn.textContent;
+    btn.textContent = on ? "送出中…" : btn.dataset.label; }
+}
+
+/* ── 掛單價格表：從 events（新→舊）反推 ── */
+function derivePrices(events){
+  const m = {};
+  for (const e of [...events].reverse()){        // 轉為舊→新
+    if (e.name === "Listed"){ try{ m[e.token_id] = JSON.parse(e.detail).price / 1e6; }catch(_){} }
+    if (e.name === "Sold" || e.name === "Unlisted") delete m[e.token_id];
+  }
+  return m;
+}
+
+/* ── 輪詢 ── */
+let pollTimer = null;
+async function refresh(){
+  try{
+    const [st, ev] = await Promise.all([api("/state"), api("/events?limit=200")]);
+    S.sus = st.sus; S.roles = st.roles; S.events = ev; S.prices = derivePrices(ev);
+    setOnline(true);
+  }catch(_){ setOnline(false); }
+  renderAll();
+  clearTimeout(pollTimer);
+  pollTimer = setTimeout(refresh, S.online ? 4000 : 10000);
+}
+function setOnline(ok){
+  S.online = ok;
+  const chip = document.getElementById("health-chip");
+  chip.classList.toggle("ok", ok);
+  document.getElementById("health-text").textContent = ok ? "鏈路連線" : "後端離線";
+  document.querySelectorAll("[data-needs-backend]").forEach(b=>b.disabled = !ok);
+}
+function renderAll(){
+  if (typeof renderDashboard === "function") renderDashboard();
+  if (typeof renderMarket === "function") renderMarket();
+  if (typeof renderAudit === "function") renderAudit();
+  // 動態重繪出來的按鈕要補套離線 disable（setOnline 只處理當下存在的節點）
+  document.querySelectorAll("[data-needs-backend]").forEach(b=>b.disabled = !S.online);
+}
+
+/* ── modal context：任何帶 data-token 的觸發元素 ── */
+document.addEventListener("click", e=>{
+  const el = e.target.closest("[data-token]");
+  if (el) S.ctxToken = Number(el.dataset.token);
+});
+
+/* ── reviveGlass（UI-ToolBox CLAUDE.md 實測解法：動態折射面板顯影） ── */
+function reviveGlass(root = document){
+  if (!LiquidGlass.supported) return;
+  const panels = [...root.querySelectorAll("[data-lg]")];
+  const saved = panels.map(el=>[el, el.style.backdropFilter, el.style.getPropertyValue("-webkit-backdrop-filter")]);
+  saved.forEach(([el,a,b])=>{ if(a||b){ el.style.backdropFilter="none"; el.style.setProperty("-webkit-backdrop-filter","none"); } });
+  requestAnimationFrame(()=>{
+    saved.forEach(([el,a,b])=>{ if(a) el.style.backdropFilter=a; if(b) el.style.setProperty("-webkit-backdrop-filter",b); });
+    const link = [...document.querySelectorAll('link[rel="stylesheet"]')].reverse()
+      .find(e=>{ try{ return new URL(e.href).origin === location.origin; }catch(_){ return false; } });
+    if (!link) return;
+    const base = link.href.split("?")[0];
+    const clone = link.cloneNode();
+    clone.href = base + "?lgrc=" + Date.now();
+    clone.addEventListener("load", ()=>link.remove(), {once:true});
+    link.after(clone);
+  });
+}
+let reviveTimers = [];
+function scheduleRevive(){
+  reviveTimers.forEach(clearTimeout);
+  reviveTimers = [400, 900, 1800, 3500].map(ms=>setTimeout(reviveGlass, ms));
+}
+
+refresh();
+
+/* ── 分頁切換與 stagger 進場 ── */
+function ensureEntered(pageId){
+  const pg = document.getElementById(pageId);
+  if (pg.classList.contains("active") && !pg.classList.contains("entered")){
+    pg.querySelectorAll(".anim").forEach((el,i)=>el.style.setProperty("--d",(i*0.06)+"s"));
+    requestAnimationFrame(()=>requestAnimationFrame(()=>pg.classList.add("entered")));
+  }
+}
+function switchPage(name){
+  document.querySelectorAll(".page").forEach(p=>{
+    p.classList.toggle("active", p.id === "page-"+name);
+    p.classList.remove("entered");
+  });
+  ensureEntered("page-"+name);
+}
+document.querySelectorAll("#nav-tabs .lg-tabs__tab").forEach(t=>
+  t.addEventListener("click",()=>switchPage(t.dataset.page)));
+switchPage("dashboard");
+
+/* ── 儀表板 ── */
+function renderDashboard(){
+  const has = S.sus.length > 0;   // 防重複發行：發行後 hero（唯一發行入口）即消失（spec §10.6）
+  document.getElementById("dash-hero").hidden = has;
+  document.getElementById("dash-main").hidden = !has;
+  if (!has){ ensureEntered("page-dashboard"); return; }
+
+  const tonnes = S.sus.reduce((s,u)=>s+u.amount,0);
+  const traded = S.sus.filter(u=>u.owner_role==="buyer").length;   // 含已除役（Sold 後 owner=買家）
+  const retired = S.sus.filter(u=>u.status==="retired").length;
+  setVal("stat-issued", S.sus.length); setVal("stat-tonnes", tonnes);
+  setVal("stat-traded", traded); setVal("stat-retired", retired);
+  document.getElementById("dash-tag").textContent = fmt(S.sus.length)+" SU on-chain";
+  setVal("gauge-traded", Math.round(traded/S.sus.length*100));
+  setVal("gauge-retired", Math.round(retired/S.sus.length*100));
+
+  const byShip = {};
+  S.sus.forEach(u=>byShip[u.ship_id]=(byShip[u.ship_id]||0)+u.amount);
+  const top = Object.entries(byShip).sort((a,b)=>b[1]-a[1]).slice(0,12);
+  const chart = document.getElementById("chart-ships");
+  const pts = top.map(t=>t[1]).join(","), lbl = top.map(t=>"…"+String(t[0]).slice(-3)).join(",");
+  if (chart.getAttribute("data-lg-points") !== pts){
+    chart.setAttribute("data-lg-points", pts); chart.setAttribute("data-lg-labels", lbl);
+  }
+  ensureEntered("page-dashboard");
+}
+function setVal(id, v){
+  const el = document.getElementById(id);
+  if (el.getAttribute("data-lg-value") !== String(v)) el.setAttribute("data-lg-value", String(v));
+}
+
+document.getElementById("btn-issue-go").addEventListener("click", async e=>{
+  if (S.busy) return;
+  setBusy(e.target, true);
+  try{
+    const r = await api("/pipeline", {});
+    toastOk("批次發行完成", `已鑄造 ${fmt(r.issued)} 筆 / ${fmt(r.total_tonnes)} 噸`);
+    document.querySelector("#m-issue [data-lg-close]").click();
+    await refresh();
+  }catch(_){}
+  setBusy(e.target, false);
+});
+
+/* ── 市場 ── */
+const wallCards = new Map();   // token_id -> card el
+function cardFor(u){
+  const el = document.createElement("div");
+  el.className = "lg lg-card su-card";
+  el.setAttribute("data-lg","");
+  el.innerHTML = `
+    <h4 class="lg-card__title"><span>SU #${u.token_id}</span><span class="lg-chip">航商掛單</span></h4>
+    <div class="meta-row"><span>船舶</span><span class="mono">${imo(u.ship_id)}</span></div>
+    <div class="meta-row"><span>減碳量</span><span class="mono gold" data-f="amount">${fmt(u.amount)} t</span></div>
+    <div class="meta-row"><span>dataHash</span><span class="mono">${shortHash(u.data_hash)}</span></div>
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-top:12px">
+      <span class="price mono gold" data-f="price"></span>
+      <button class="lg lg-btn lg-btn--sm lg-btn--accent" data-lg data-token="${u.token_id}"
+        data-lg-open="#m-buy" data-needs-backend>購買</button>
+    </div>`;
+  return el;
+}
+function renderMarket(){
+  const listed = S.sus.filter(u=>u.status==="listed");
+  const wall = document.getElementById("listing-wall");
+  const seen = new Set();
+  let added = false;
+  listed.forEach(u=>{
+    seen.add(u.token_id);
+    let el = wallCards.get(u.token_id);
+    if (!el){
+      el = cardFor(u); wallCards.set(u.token_id, el); wall.appendChild(el);
+      LiquidGlass.attach(el); el.querySelectorAll("[data-lg]").forEach(c=>LiquidGlass.attach(c));
+      added = true;
+    }
+    const p = S.prices[u.token_id];
+    el.querySelector('[data-f="price"]').textContent = p !== undefined ? fmt(p)+" mUSD" : "— mUSD";
+  });
+  [...wallCards.keys()].filter(id=>!seen.has(id)).forEach(id=>{ wallCards.get(id).remove(); wallCards.delete(id); });
+  if (added) scheduleRevive();
+  document.getElementById("wall-tag").textContent = listed.length + " 筆掛單中";
+  document.getElementById("wall-empty").hidden = listed.length > 0;
+
+  renderSide("held-shipping","held-ship-tag",
+    S.sus.filter(u=>u.status==="held" && u.owner_role==="shipping"),
+    u=>`<button class="lg lg-btn lg-btn--sm" data-lg data-token="${u.token_id}" data-lg-open="#m-list" data-needs-backend>上架</button>`);
+  renderSide("held-buyer","held-buyer-tag",
+    S.sus.filter(u=>u.status==="held" && u.owner_role==="buyer"),
+    u=>`<button class="lg lg-btn lg-btn--sm lg-btn--accent" data-lg data-token="${u.token_id}" data-lg-open="#m-retire" data-needs-backend>除役</button>`);
+  ensureEntered("page-market");
+}
+function renderSide(listId, tagId, items, btnHtml){
+  document.getElementById(tagId).textContent = items.length;
+  document.getElementById(listId).innerHTML = items.length
+    ? items.map(u=>`<li><span class="mono">#${u.token_id} ${imo(u.ship_id)}</span>
+        <span class="mono" style="color:var(--ink-50)">${fmt(u.amount)} t</span>${btnHtml(u)}</li>`).join("")
+    : `<li style="border:none;color:var(--ink-40)">（無）</li>`;
+}
+
+/* 開 modal 時帶入 SU 摘要 */
+document.addEventListener("click", e=>{
+  const t = e.target.closest("[data-lg-open]");
+  if (!t || t.dataset.token === undefined) return;
+  const u = S.sus.find(x=>x.token_id === Number(t.dataset.token));
+  if (!u) return;
+  const sum = `SU #${u.token_id} · ${imo(u.ship_id)} · ${fmt(u.amount)} t`;
+  if (t.dataset.lgOpen === "#m-list") document.getElementById("list-summary").textContent = sum;
+  if (t.dataset.lgOpen === "#m-buy"){
+    const p = S.prices[u.token_id];
+    document.getElementById("buy-summary").textContent =
+      sum + " · 總價 " + (p !== undefined ? fmt(p)+" mUSD" : "（依鏈上掛單價）");
+  }
+});
+
+document.getElementById("btn-list-go").addEventListener("click", async e=>{
+  if (S.busy || S.ctxToken === null) return;
+  const price = parseInt(document.getElementById("list-price").value, 10);
+  if (!Number.isInteger(price) || price <= 0){ toastErr(new Error("售價需為正整數 mUSD")); return; }
+  setBusy(e.target, true);
+  try{
+    await api("/list", {token_id:S.ctxToken, price});
+    toastOk("已上架", `SU #${S.ctxToken} 掛單 ${fmt(price)} mUSD`);
+    document.querySelector("#m-list [data-lg-close]").click();
+    await refresh();
+  }catch(_){}
+  setBusy(e.target, false);
+});
+document.getElementById("btn-buy-go").addEventListener("click", async e=>{
+  if (S.busy || S.ctxToken === null) return;
+  setBusy(e.target, true);
+  try{
+    await api("/buy", {token_id:S.ctxToken});
+    toastOk("交易完成", `SU #${S.ctxToken} 已由買家購入（transfer-once 已用畢）`);
+    document.querySelector("#m-buy [data-lg-close]").click();
+    await refresh();
+  }catch(_){}
+  setBusy(e.target, false);
+});
+
+/* ── 除役 ── */
+document.addEventListener("click", e=>{
+  const t = e.target.closest('[data-lg-open="#m-retire"][data-token]');
+  if (!t) return;
+  const u = S.sus.find(x=>x.token_id === Number(t.dataset.token));
+  if (u) document.getElementById("retire-summary").textContent =
+    `SU #${u.token_id} · ${imo(u.ship_id)} · ${fmt(u.amount)} t`;
+});
+document.getElementById("btn-retire-go").addEventListener("click", async e=>{
+  if (S.busy || S.ctxToken === null) return;
+  const purpose = Number(document.querySelector('input[name="purpose"]:checked').value);
+  setBusy(e.target, true);
+  try{
+    await api("/retire", {token_id:S.ctxToken, purpose});
+    toastOk("已除役銷毀", `SU #${S.ctxToken} 已 burn——至「稽核」分頁查看 Retired 事件與 verify`);
+    document.querySelector("#m-retire [data-lg-close]").click();
+    await refresh();
+  }catch(_){}
+  setBusy(e.target, false);
+});
+
+/* ── 稽核 ── */
+const EVENT_TEXT = {
+  Issued:  d => `發行予航商 · ${fmt(d.amount)} t`,
+  Listed:  d => `掛單 ${fmt(d.price/1e6)} mUSD`,
+  Sold:    d => `買家以 ${fmt(d.price/1e6)} mUSD 購入`,
+  Unlisted:() => "撤下掛單",
+  Retired: d => `除役用途 ${d.purpose}`,
+};
+function renderAudit(){
+  document.getElementById("audit-tag").textContent = fmt(S.sus.length)+" 筆";
+  document.getElementById("su-tbody").innerHTML = S.sus.map(u=>`
+    <tr>
+      <td class="mono">${u.token_id}</td>
+      <td class="mono">${imo(u.ship_id)}</td>
+      <td class="mono gold">${fmt(u.amount)}</td>
+      <td>${u.owner_role ?? "-"}</td>
+      <td><span class="pill ${u.status}">${u.status}</span></td>
+      <td style="color:var(--ink-50)">${u.purpose_name ?? "-"}</td>
+      <td><button class="lg lg-btn lg-btn--sm" data-lg data-token="${u.token_id}"
+        data-lg-open="#m-verify" data-needs-backend>驗證</button></td>
+    </tr>`).join("");
+  document.getElementById("event-feed").innerHTML = S.events.map(e=>{
+    let d = {}; try{ d = JSON.parse(e.detail); }catch(_){}
+    const txt = (EVENT_TEXT[e.name] || (()=>e.detail))(d);
+    return `<li><span class="ts mono">${e.ts}</span><span class="nm">${e.name}</span>
+      <span class="mono" style="color:var(--ink-50)">SU #${e.token_id}</span>
+      <span class="dt">${txt}</span></li>`;
+  }).join("");
+  ensureEntered("page-audit");
+}
+
+/* verify：開 modal 即打 API */
+document.addEventListener("click", async e=>{
+  const t = e.target.closest('[data-lg-open="#m-verify"][data-token]');
+  if (!t) return;
+  const id = Number(t.dataset.token);
+  document.getElementById("verify-token").textContent = "SU #"+id;
+  const body = document.getElementById("verify-body");
+  body.innerHTML = `<p style="color:var(--ink-50)">驗證中——讀取鏈上 dataHash 並對鏈下明細重算 keccak…</p>`;
+  try{
+    const v = await api("/verify/"+id);
+    const cls = v.match ? "hash-ok" : "hash-bad";
+    body.innerHTML = `
+      <div class="verdict ${v.match ? "ok" : "bad"}">${v.match ? "MATCH — 鏈下明細未遭竄改" : "MISMATCH — 鏈下明細與鏈上指紋不符"}</div>
+      <div class="hashes mono">
+        <div class="row"><b>on-chain dataHash</b><span class="val">${v.onchain_hash ?? "-"}</span></div>
+        <div class="row"><b>recomputed keccak</b><span class="val ${cls}">${v.recomputed_hash ?? "-"}</span></div>
+        <div class="row"><b>off-chain uri</b><span class="val" style="color:var(--ink-50)">${v.uri ?? "-"}</span></div>
+      </div>
+      ${v.detail ? `<p style="font-size:12.5px;color:var(--ink-50)">${v.detail}</p>` : ""}`;
+  }catch(err){
+    body.innerHTML = `<p style="color:#ff7a7a">驗證失敗：${err.message}</p>`;
+  }
+});
+</script>
+</body>
+</html>
